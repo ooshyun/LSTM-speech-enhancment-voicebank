@@ -1,18 +1,26 @@
 from data_processing.mozilla_common_voice import MozillaCommonVoiceDataset
 from data_processing.urban_sound_8K import UrbanSound8K
+from data_processing.VoiceBankDEMAND import VoiceBandDEMAND
 from data_processing.dataset import Dataset
+from data_processing.datasetVoiceBank import DatasetVoiceBank
 import warnings
 
 warnings.filterwarnings(action='ignore')
 
-mozilla_basepath = '/home/thallessilva/Documents/datasets/en'
-urbansound_basepath = '/home/thallessilva/Documents/datasets/UrbanSound8K'
+# mozilla_basepath = '/home/thallessilva/Documents/datasets/en'
+# urbansound_basepath = '/home/thallessilva/Documents/datasets/UrbanSound8K'
 
-mcv = MozillaCommonVoiceDataset(mozilla_basepath, val_dataset_size=1000)
-clean_train_filenames, clean_val_filenames = mcv.get_train_val_filenames()
+# mcv = MozillaCommonVoiceDataset(mozilla_basepath, val_dataset_size=1000)
+# clean_train_filenames, clean_val_filenames = mcv.get_train_val_filenames()
 
-us8K = UrbanSound8K(urbansound_basepath, val_dataset_size=200)
-noise_train_filenames, noise_val_filenames = us8K.get_train_val_filenames()
+# us8K = UrbanSound8K(urbansound_basepath, val_dataset_size=200)
+# noise_train_filenames, noise_val_filenames = us8K.get_train_val_filenames()
+
+voiceBankDEMAND_basepath = '/Users/seunghyunoh/workplace/study/NoiseReduction/Tiny-SpeechEnhancement/data/VoiceBankDEMAND/DS_10283_2791'
+
+voiceBank = VoiceBandDEMAND(voiceBankDEMAND_basepath, val_dataset_percent=0.3)
+clean_train_filenames, noisy_train_filenames, clean_val_filenames, noisy_val_filenames = voiceBank.get_train_val_filenames()
+
 
 windowLength = 256
 config = {'windowLength': windowLength,
@@ -20,17 +28,19 @@ config = {'windowLength': windowLength,
           'fs': 16000,
           'audio_max_duration': 0.8}
 
-val_dataset = Dataset(clean_val_filenames, noise_val_filenames, **config)
+val_dataset = DatasetVoiceBank(clean_val_filenames, noisy_val_filenames, **config)
 val_dataset.create_tf_record(prefix='val', subset_size=2000)
 
-train_dataset = Dataset(clean_train_filenames, noise_train_filenames, **config)
+train_dataset = DatasetVoiceBank(clean_train_filenames, noisy_train_filenames, **config)
 train_dataset.create_tf_record(prefix='train', subset_size=4000)
 
 ## Create Test Set
-clean_test_filenames = mcv.get_test_filenames()
+# clean_test_filenames = mcv.get_test_filenames()
+# noise_test_filenames = us8K.get_test_filenames()
 
-noise_test_filenames = us8K.get_test_filenames()
+clean_test_filenames, noisy_test_filenames = voiceBank.get_test_filenames()
 
-test_dataset = Dataset(clean_test_filenames, noise_test_filenames, **config)
+
+test_dataset = DatasetVoiceBank(clean_test_filenames, noisy_test_filenames, **config)
 test_dataset.create_tf_record(prefix='test', subset_size=1000, parallel=False)
 
