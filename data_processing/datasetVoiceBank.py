@@ -71,7 +71,6 @@ class DatasetVoiceBank:
         # sample random fixed-sized snippets of audio
         clean_audio, noisy_audio= self._audio_random_crop(clean_audio, noisy_audio, duration=self.audio_max_duration)
 
-
         # extract stft features from noisy audio
         noisy_input_fe = FeatureExtractor(noisy_audio, windowLength=self.window_length, overlap=self.overlap,
                                           sample_rate=self.sample_rate)
@@ -153,18 +152,16 @@ class DatasetVoiceBank:
                 clean_stft_magnitude = o[1]
                 noisy_stft_phase = o[2]
 
-                # noise_stft_mag_features = prepare_input_features(noisy_stft_magnitude, numSegments=8, numFeatures=129)
-                # noise_stft_mag_features = np.transpose(noise_stft_mag_features, (2, 0, 1))
+                noise_stft_mag_features = prepare_input_features(noisy_stft_magnitude, numSegments=8, numFeatures=129)
 
+                noise_stft_mag_features = np.transpose(noise_stft_mag_features, (2, 0, 1))
                 clean_stft_magnitude = np.transpose(clean_stft_magnitude, (1, 0))
-                noisy_stft_magnitude = np.transpose(noisy_stft_magnitude, (1, 0))
                 noisy_stft_phase = np.transpose(noisy_stft_phase, (1, 0))
 
-                # noise_stft_mag_features = np.expand_dims(noise_stft_mag_features, axis=3)
-                noisy_stft_magnitude = np.expand_dims(noisy_stft_magnitude, axis=2)
+                noise_stft_mag_features = np.expand_dims(noise_stft_mag_features, axis=3)
                 clean_stft_magnitude = np.expand_dims(clean_stft_magnitude, axis=2)
 
-                for x_, y_, p_ in zip(noisy_stft_magnitude, clean_stft_magnitude, noisy_stft_phase):
+                for x_, y_, p_ in zip(noise_stft_mag_features, clean_stft_magnitude, noisy_stft_phase):
                     y_ = np.expand_dims(y_, 2)
                     example = get_tf_feature(x_, y_, p_)
                     writer.write(example.SerializeToString())
