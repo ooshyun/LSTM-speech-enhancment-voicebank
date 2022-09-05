@@ -38,9 +38,7 @@ train_dataset.create_tf_record(prefix='train', subset_size=4000)
 # clean_test_filenames = mcv.get_test_filenames()
 # noise_test_filenames = us8K.get_test_filenames()
 
-clean_test_filenames, noisy_test_filenames = voiceBank.get_test_filenames()
-
-
-test_dataset = DatasetVoiceBank(clean_test_filenames, noisy_test_filenames, **config)
-test_dataset.create_tf_record(prefix='test', subset_size=1000, parallel=False)
+# clean_test_filenames, noisy_test_filenames = voiceBank.get_test_filenames()
+# test_dataset = DatasetVoiceBank(clean_test_filenames, noisy_test_filenames, **config)
+# test_dataset.create_tf_record(prefix='test', subset_size=1000, parallel=False)
 
