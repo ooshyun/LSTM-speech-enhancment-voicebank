@@ -1,3 +1,4 @@
+from tinylstm import TinyLSTM
 from keras.layers import Conv2D, Input, LeakyReLU, Flatten, Dense, Reshape, Conv2DTranspose, BatchNormalization, Activation, ZeroPadding2D, SpatialDropout2D
 from keras import Model, Sequential
 import keras.regularizers
@@ -139,3 +140,15 @@ def build_model(l2_strength):
   model.compile(optimizer=optimizer, loss='mse', 
                 metrics=[keras.metrics.RootMeanSquaredError('rmse')])
   return model
+
+def build_model_lstm():
+    # feature, nseg, nchannel
+    model = TinyLSTM(original_dim=129, samplerate=16000, n_fft=256, n_mels=129)
+    ...
+
+    optimizer = keras.optimizers.Adam(3e-4)
+    #optimizer = RAdam(total_steps=10000, warmup_proportion=0.1, min_lr=3e-4)
+
+    model.compile(optimizer=optimizer, loss='mse', 
+                metrics=[keras.metrics.RootMeanSquaredError('rmse')])
+    return model

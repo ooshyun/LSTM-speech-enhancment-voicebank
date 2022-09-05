@@ -108,8 +108,9 @@ class DatasetVoiceBank:
         counter = 0
         # p = multiprocessing.Pool(multiprocessing.cpu_count())
 
-        folder = Path("./records")
-
+        # folder = Path("./records")
+        folder = Path("./records_lstm")
+        
         if folder.is_dir():
             pass
         else:
@@ -145,26 +146,40 @@ class DatasetVoiceBank:
 
                 # out = p.map(self.parallel_audio_processing, clean_filenames_sublist)
             else:
-                out = [self.parallel_audio_processing(file_names) for file_names in tqdm.tqdm(file_names_sublist, ncols=120)]
-
+                out = [self.parallel_audio_processing(file_names) for file_names in tqdm.tqdm(file_names_sublist, ncols=120)] 
+            
             for o in out:
                 noisy_stft_magnitude = o[0]
                 clean_stft_magnitude = o[1]
                 noisy_stft_phase = o[2]
 
-                noise_stft_mag_features = prepare_input_features(noisy_stft_magnitude, numSegments=8, numFeatures=129)
+                # cnn-denoiser input, 8 segementation, 256 window, num frequency, num channel, num segment, 
+                # noise_stft_mag_features = prepare_input_features(noisy_stft_magnitude, numSegments=8, numFeatures=129) # cnn-denoiser
 
-                noise_stft_mag_features = np.transpose(noise_stft_mag_features, (2, 0, 1))
+                # noise_stft_mag_features = np.transpose(noise_stft_mag_features, (2, 0, 1)) # nchannel, nseg, nfeature -> nfeature, nchannel, nseg
+                # clean_stft_magnitude = np.transpose(clean_stft_magnitude, (1, 0))
+                # noisy_stft_phase = np.transpose(noisy_stft_phase, (1, 0))
+
+                # noise_stft_mag_features = np.expand_dims(noise_stft_mag_features, axis=3)
+                # clean_stft_magnitude = np.expand_dims(clean_stft_magnitude, axis=2)
+
+                # for x_, y_, p_ in zip(noise_stft_mag_features, clean_stft_magnitude, noisy_stft_phase):
+                #     y_ = np.expand_dims(y_, 2)
+                #     example = get_tf_feature(x_, y_, p_)
+                #     writer.write(example.SerializeToString())
+
+                # lstm, 1 sec segementation, 512 window, num channel, num segment, num frequency
+                noisy_stft_magnitude = np.transpose(noisy_stft_magnitude, (1, 0))
                 clean_stft_magnitude = np.transpose(clean_stft_magnitude, (1, 0))
                 noisy_stft_phase = np.transpose(noisy_stft_phase, (1, 0))
 
-                noise_stft_mag_features = np.expand_dims(noise_stft_mag_features, axis=3)
-                clean_stft_magnitude = np.expand_dims(clean_stft_magnitude, axis=2)
+                noisy_stft_magnitude = np.expand_dims(noisy_stft_magnitude, axis=0)
+                clean_stft_magnitude = np.expand_dims(clean_stft_magnitude, axis=0)
+                noisy_stft_phase = np.expand_dims(noisy_stft_phase, axis=0)
 
-                for x_, y_, p_ in zip(noise_stft_mag_features, clean_stft_magnitude, noisy_stft_phase):
-                    y_ = np.expand_dims(y_, 2)
+                for x_, y_, p_ in zip(noisy_stft_magnitude, clean_stft_magnitude, noisy_stft_phase):
                     example = get_tf_feature(x_, y_, p_)
-                    writer.write(example.SerializeToString())
+                    writer.write(example.SerializeToString())    
 
             counter += 1
             writer.close()

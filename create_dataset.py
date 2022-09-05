@@ -21,24 +21,34 @@ voiceBankDEMAND_basepath = '/Users/seunghyunoh/workplace/study/NoiseReduction/Ti
 voiceBank = VoiceBandDEMAND(voiceBankDEMAND_basepath, val_dataset_percent=0.3)
 clean_train_filenames, noisy_train_filenames, clean_val_filenames, noisy_val_filenames = voiceBank.get_train_val_filenames()
 
+# # cnn-denoiser
+# windowLength = 256
 
-windowLength = 256
+# config = {'windowLength': windowLength,
+#           'overlap': round(0.25 * windowLength),
+#           'fs': 16000,
+#           'audio_max_duration': 0.8}
+
+# val_dataset = DatasetVoiceBank(clean_val_filenames, noisy_val_filenames, **config)
+# val_dataset.create_tf_record(prefix='val', subset_size=2000)
+
+# train_dataset = DatasetVoiceBank(clean_train_filenames, noisy_train_filenames, **config)
+# train_dataset.create_tf_record(prefix='train', subset_size=4000)
+
+## Create Test Set
+# clean_test_filenames = mcv.get_test_filenames()
+# noise_test_filenames = us8K.get_test_filenames()
+
+# lstm
+windowLength = 512
+
 config = {'windowLength': windowLength,
-          'overlap': round(0.25 * windowLength),
+          'overlap': round(0.5 * windowLength),
           'fs': 16000,
-          'audio_max_duration': 0.8}
+          'audio_max_duration': 1}
 
 val_dataset = DatasetVoiceBank(clean_val_filenames, noisy_val_filenames, **config)
 val_dataset.create_tf_record(prefix='val', subset_size=2000)
 
 train_dataset = DatasetVoiceBank(clean_train_filenames, noisy_train_filenames, **config)
 train_dataset.create_tf_record(prefix='train', subset_size=4000)
-
-## Create Test Set
-# clean_test_filenames = mcv.get_test_filenames()
-# noise_test_filenames = us8K.get_test_filenames()
-
-# clean_test_filenames, noisy_test_filenames = voiceBank.get_test_filenames()
-# test_dataset = DatasetVoiceBank(clean_test_filenames, noisy_test_filenames, **config)
-# test_dataset.create_tf_record(prefix='test', subset_size=1000, parallel=False)
-
