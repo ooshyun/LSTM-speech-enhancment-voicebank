@@ -1,7 +1,7 @@
 import numpy as np
 import pickle
 import librosa
-import sounddevice as sd
+# import sounddevice as sd
 import tensorflow as tf
 
 
@@ -24,8 +24,8 @@ def revert_features_to_audio(features, phase, window_length, overlap, cleanMean=
 
 def play(audio, sample_rate):
     # ipd.display(ipd.Audio(data=audio, rate=sample_rate))  # load a local WAV file
-    sd.play(audio, sample_rate, blocking=True)
-
+    # sd.play(audio, sample_rate, blocking=True)
+    ...
 
 def add_noise_to_clean_audio(clean_audio, noise_signal):
     if len(clean_audio) >= len(noise_signal):
