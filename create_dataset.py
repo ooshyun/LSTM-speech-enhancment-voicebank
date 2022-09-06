@@ -16,9 +16,12 @@ warnings.filterwarnings(action='ignore')
 # us8K = UrbanSound8K(urbansound_basepath, val_dataset_size=200)
 # noise_train_filenames, noise_val_filenames = us8K.get_train_val_filenames()
 
+## Create Test Set
+# clean_test_filenames = mcv.get_test_filenames()
+# noise_test_filenames = us8K.get_test_filenames()
+
 voiceBankDEMAND_basepath = '/Users/seunghyunoh/workplace/study/NoiseReduction/Tiny-SpeechEnhancement/data/VoiceBankDEMAND/DS_10283_2791'
 voiceBankDEMAND_basepath = '/home/daniel0413/workplace/project/SpeechEnhancement/TinyML/data/VoiceBankDEMAND'
-
 
 voiceBank = VoiceBandDEMAND(voiceBankDEMAND_basepath, val_dataset_percent=0.3)
 clean_train_filenames, noisy_train_filenames, clean_val_filenames, noisy_val_filenames = voiceBank.get_train_val_filenames()
@@ -37,13 +40,8 @@ clean_train_filenames, noisy_train_filenames, clean_val_filenames, noisy_val_fil
 # train_dataset = DatasetVoiceBank(clean_train_filenames, noisy_train_filenames, **config)
 # train_dataset.create_tf_record(prefix='train', subset_size=4000)
 
-## Create Test Set
-# clean_test_filenames = mcv.get_test_filenames()
-# noise_test_filenames = us8K.get_test_filenames()
-
 # lstm
 windowLength = 512
-
 config = {'windowLength': windowLength,
           'overlap': round(0.5 * windowLength),
           'fs': 16000,

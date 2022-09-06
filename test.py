@@ -14,7 +14,7 @@ import numpy as np
 from data_processing.VoiceBankDEMAND import VoiceBandDEMAND
 from data_processing.feature_extractor import FeatureExtractor
 from utils import prepare_input_features, read_audio
-from model import build_model
+from model import build_model, build_model_lstm
 # Load the TensorBoard notebook extension.
 # %load_ext tensorboard
 
@@ -26,9 +26,13 @@ device_lib.list_local_devices()
 tf.random.set_seed(999)
 np.random.seed(999)
 
-path_to_dataset = "./records"
+model_name = 'cnn'
+# model_name = 'lstm'
+
+path_to_dataset = f"./records_{model_name}"
 
 model = build_model(l2_strength=0.0)
+# model = build_model_lstm()
 model.summary()
 
 windowLength = 256
@@ -47,7 +51,7 @@ print("numFeatures:",numFeatures)
 print("numSegments:",numSegments)
 
 # [TODO] Model load
-model = keras.models.load_model("./model")
+model = keras.models.load_model(f"./model_{model_name}")
 
 # [TODO] Load test wav file 
 voiceBankDEMAND_basepath = '/Users/seunghyunoh/workplace/study/NoiseReduction/Tiny-SpeechEnhancement/data/VoiceBankDEMAND/DS_10283_2791'

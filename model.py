@@ -1,15 +1,40 @@
-from tinylstm import TinyLSTM
-from keras.layers import Conv2D, Input, LeakyReLU, Flatten, Dense, Reshape, Conv2DTranspose, BatchNormalization, Activation, ZeroPadding2D, SpatialDropout2D
+from keras.layers import (
+  Conv2D, 
+  Input, 
+  LeakyReLU, 
+  Flatten, 
+  Dense, 
+  Reshape, 
+  Conv2DTranspose, 
+  BatchNormalization, 
+  Activation, 
+  ZeroPadding2D, 
+  SpatialDropout2D,
+  LSTM,
+  Dense,
+)
+
+import tensorflow as tf
 from keras import Model, Sequential
 import keras.regularizers
+from librosa.filters import mel
 
-windowLength = 256
-overlap      = round(0.25 * windowLength) # overlap of 75%
+# windowLength = 256
+# overlap      = round(0.25 * windowLength) # overlap of 75%
+# ffTLength    = windowLength
+# inputFs      = 48e3
+# fs           = 16e3
+# numFeatures  = ffTLength//2 + 1
+# numSegments  = 8
+
+windowLength = 512
+overlap      = round(0.5 * windowLength) # overlap of 75%
 ffTLength    = windowLength
 inputFs      = 48e3
 fs           = 16e3
 numFeatures  = ffTLength//2 + 1
-numSegments  = 8
+numSegments  = 63 # 1 sec in 512 window, 256 hop, sr = 16000 Hz
+
 print("windowLength:",windowLength)
 print("overlap:",overlap)
 print("ffTLength:",ffTLength)
@@ -141,14 +166,38 @@ def build_model(l2_strength):
                 metrics=[keras.metrics.RootMeanSquaredError('rmse')])
   return model
 
+def get_mel_filter(samplerate, n_fft, n_mels, fmin, fmax):
+    mel_basis = mel(sr=samplerate, n_fft=n_fft, n_mels=n_mels, fmin=fmin, fmax=fmax)
+    return tf.convert_to_tensor(mel_basis, dtype=tf.float32)
+
 def build_model_lstm():
-    # feature, nseg, nchannel
-    model = TinyLSTM(original_dim=129, samplerate=16000, n_fft=256, n_mels=129)
-    ...
+  inputs = Input(shape=[1, numSegments, numFeatures])
+  x = inputs
 
-    optimizer = keras.optimizers.Adam(3e-4)
-    #optimizer = RAdam(total_steps=10000, warmup_proportion=0.1, min_lr=3e-4)
+  mask = tf.identity(x)
+  
+  mel_matrix = get_mel_filter(samplerate=16000, n_fft=numFeatures, n_mels=numFeatures//2, fmin=0, fmax=8000)
+  mask = tf.matmul(mask, tf.transpose(mel_matrix, perm=[1, 0]))
 
-    model.compile(optimizer=optimizer, loss='mse', 
-                metrics=[keras.metrics.RootMeanSquaredError('rmse')])
-    return model
+
+  mask = LSTM(numFeatures, activation='tanh', return_sequences=True)(mask)
+  mask = Dense(128, activation='relu', use_bias=True, 
+        kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask)
+
+  mask = BatchNormalization()(mask)
+
+  mask = LSTM(256, activation='tanh')(mask)
+  mask = Dense(128, activation='sigmoid', use_bias=True,
+        kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask)
+
+  mask = tf.matmul(mask, mel_matrix)
+  x = tf.matmul(x, mask)
+
+  model = Model(inputs=inputs, outputs=x)
+
+  optimizer = keras.optimizers.Adam(3e-4)
+  #optimizer = RAdam(total_steps=10000, warmup_proportion=0.1, min_lr=3e-4)
+
+  model.compile(optimizer=optimizer, loss='mse', 
+              metrics=[keras.metrics.RootMeanSquaredError('rmse')])
+  return model
