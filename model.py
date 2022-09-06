@@ -13,6 +13,7 @@ from keras.layers import (
   LSTM,
   Dense,
   Layer,
+  Multiply,
 )
 
 import tensorflow as tf
@@ -21,13 +22,13 @@ import keras.regularizers
 from librosa.filters import mel
 import logging
 
-windowLength = 256
-overlap      = round(0.25 * windowLength) # overlap of 75%
-ffTLength    = windowLength
-inputFs      = 48e3
-fs           = 16e3
-numFeatures  = ffTLength//2 + 1
-numSegments  = 8
+# windowLength = 256
+# overlap      = round(0.25 * windowLength) # overlap of 75%
+# ffTLength    = windowLength
+# inputFs      = 48e3
+# fs           = 16e3
+# numFeatures  = ffTLength//2 + 1
+# numSegments  = 8
 
 windowLength = 512
 overlap      = round(0.5 * windowLength) # overlap of 75%
@@ -249,13 +250,13 @@ class InverseMelSpec(Layer):
             upper_edge_hertz=self.freq_max,
         )
 
-    def call(self, magnitude, training=True):
+    def call(self, mel, training=True):
         # We will only perform the transformation during training.
-        mel = tf.matmul(magnitude, tf.transpose(self.mel_filterbank, perm=[1, 0]))
-        return mel
+        magnitude = tf.matmul(mel, tf.transpose(self.mel_filterbank, perm=[1, 0]))
+        return magnitude
 
     def get_config(self):
-        config = super(MelSpec, self).get_config()
+        config = super(InverseMelSpec, self).get_config()
         config.update(
             {
                 "frame_length": self.frame_length,
@@ -275,14 +276,12 @@ def get_mel_filter(samplerate, n_fft, n_mels, fmin, fmax):
 
 def build_model_lstm():
   inputs = Input(shape=[1, numSegments, numFeatures])
+  
   x = inputs
 
-  mask = tf.identity(x)
+  mask = tf.squeeze(x, axis=1) # merge channel
   mask = MelSpec()(mask)
-
-  print("Mask shape: ", mask.shape)
-  mask = tf.squeeze(mask, axis=0)
-  mask = LSTM(numFeatures, activation='tanh', return_sequences=True)(mask)
+  mask = LSTM(256, activation='tanh', return_sequences=True)(mask)
   mask = Dense(128, activation='relu', use_bias=True, 
         kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask)
 
@@ -293,8 +292,9 @@ def build_model_lstm():
         kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask)
   
   mask = InverseMelSpec()(mask)
-  x = tf.multiply(x, mask)
-
+  mask = tf.expand_dims(mask, axis=1) # merge channel
+  
+  x = Multiply()([x, mask])
   model = Model(inputs=inputs, outputs=x)
 
   optimizer = keras.optimizers.Adam(3e-4)

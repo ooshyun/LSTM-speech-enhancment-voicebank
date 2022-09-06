@@ -17,7 +17,6 @@ You can create the dataset for yourself.
 - Use the ```create_dataset.py``` script to create the TFRecord files. 
 
 
-
 - TODO
 - mel_filterbank needs the square of amplitude?
 

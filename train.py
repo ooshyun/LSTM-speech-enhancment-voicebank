@@ -94,15 +94,20 @@ def tf_record_parser(record):
         noise_stft_mag_features = tf.reshape(noise_stft_mag_features, (numFeatures, numSegments, 1), name="noise_stft_mag_features")
         clean_stft_magnitude = tf.reshape(clean_stft_magnitude, (numFeatures, 1, 1), name="clean_stft_magnitude")
         noise_stft_phase = tf.reshape(noise_stft_phase, (numFeatures,), name="noise_stft_phase")
+    
+        return noise_stft_mag_features , clean_stft_magnitude
+
     elif model_name == 'lstm':
         # reshape input and annotation images, lstm
         noise_stft_mag_features = tf.reshape(noise_stft_mag_features, (1, numSegments, numFeatures), name="noise_stft_mag_features")
         clean_stft_magnitude = tf.reshape(clean_stft_magnitude, (1, numSegments, numFeatures), name="clean_stft_magnitude")
         noise_stft_phase = tf.reshape(noise_stft_phase, (numFeatures,), name="noise_stft_phase")
+    
+        return noise_stft_mag_features, clean_stft_magnitude
+
     else:
         raise ValueError("Model didn't implement...")
 
-    return noise_stft_mag_features, clean_stft_magnitude
 
 train_dataset = tf.data.TFRecordDataset([train_tfrecords_filenames])
 train_dataset = train_dataset.map(tf_record_parser)

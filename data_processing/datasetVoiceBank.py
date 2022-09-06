@@ -102,7 +102,6 @@ class DatasetVoiceBank:
         scaler = StandardScaler(copy=False, with_mean=True, with_std=True)
         noisy_magnitude = scaler.fit_transform(noisy_magnitude)
         clean_magnitude = scaler.transform(clean_magnitude)
-        print(noisy_magnitude.shape)
         return noisy_magnitude, clean_magnitude, noisy_phase
 
     def create_tf_record(self, *, prefix, subset_size, parallel=False):
