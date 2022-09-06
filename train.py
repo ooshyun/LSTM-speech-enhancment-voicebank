@@ -29,6 +29,7 @@ from model import build_model, build_model_lstm
 
 from tensorflow.python.client import device_lib
 import keras.models
+from pathlib import Path
 
 device_lib.list_local_devices()
 
@@ -49,21 +50,23 @@ np.random.shuffle(train_tfrecords_filenames)
 print("Training file names: ", train_tfrecords_filenames)
 print("Validation file names: ", val_tfrecords_filenames)
 
-# windowLength = 256
-# overlap      = round(0.25 * windowLength) # overlap of 75%
-# ffTLength    = windowLength
-# inputFs      = 48e3
-# fs           = 16e3
-# numFeatures  = ffTLength//2 + 1
-# numSegments  = 8
+if model_name == "cnn":
+    windowLength = 256
+    overlap      = round(0.25 * windowLength) # overlap of 75%
+    ffTLength    = windowLength
+    inputFs      = 48e3
+    fs           = 16e3
+    numFeatures  = ffTLength//2 + 1
+    numSegments  = 8
 
-windowLength = 512
-overlap      = round(0.5 * windowLength) # overlap of 75%
-ffTLength    = windowLength
-inputFs      = 48e3
-fs           = 16e3
-numFeatures  = ffTLength//2 + 1
-numSegments  = 63 # 1 sec in 512 window, 256 hop, sr = 16000 Hz
+if model_name == "lstm":
+    windowLength = 512
+    overlap      = round(0.5 * windowLength) # overlap of 75%
+    ffTLength    = windowLength
+    inputFs      = 48e3
+    fs           = 16e3
+    numFeatures  = ffTLength//2 + 1
+    numSegments  = 63 # 1 sec in 512 window, 256 hop, sr = 16000 Hz
 
 print("windowLength:",windowLength)
 print("overlap:",overlap)
@@ -139,11 +142,19 @@ def SDR(denoised, cleaned, eps=1e-7): # Signal to Distortion Ratio
     a_b = a / b
     return np.mean(10 * np.log10(a_b + eps))
 
+log_folder = Path(f"./logs/{model_name}")
+result_folder = Path(f"./result/{model_name}")
+
+if not log_folder.is_dir():
+    log_folder.mkdir()
+if not result_folder.is_dir():
+    result_folder.mkdir()
+
 early_stopping_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=50, restore_best_weights=True, baseline=None)
-logdir = os.path.join(f"logs_{model_name}", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+logdir = os.path.join(f"./logs/{model_name}", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir, update_freq='batch')
 
-save_path = f'./checkpoint_{model_name}' + "/model-{epoch:02d}-{val_loss:.4f}.hdf5"
+save_path = f'./result/{model_name}/checkpoint' + "/model-{epoch:02d}-{val_loss:.4f}.hdf5"
 checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=save_path, 
                                                          monitor='val_loss', save_best_only=True)
 
@@ -157,5 +168,5 @@ model.fit(train_dataset,
 val_loss = model.evaluate(test_dataset)[0]
 if val_loss < baseline_val_loss:
   print("New model saved.")
-  keras.models.save_model(model=model, filepath=f"./model_{model_name}", save_format="tf", include_optimizer=True)
+  keras.models.save_model(model, f'.result/{model_name}/model', overwrite=True, include_optimizer=True)
   # model.save('./denoiser_cnn_log_mel_generator.h5')

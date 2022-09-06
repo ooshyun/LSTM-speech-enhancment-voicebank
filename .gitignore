@@ -1,0 +1,6 @@
+**
+!*.py
+!*.md
+!data_processing/
+!history/
+!.gitignore

@@ -12,20 +12,22 @@ from keras.layers import (
   SpatialDropout2D,
   LSTM,
   Dense,
+  Layer,
 )
 
 import tensorflow as tf
 from keras import Model, Sequential
 import keras.regularizers
 from librosa.filters import mel
+import logging
 
-# windowLength = 256
-# overlap      = round(0.25 * windowLength) # overlap of 75%
-# ffTLength    = windowLength
-# inputFs      = 48e3
-# fs           = 16e3
-# numFeatures  = ffTLength//2 + 1
-# numSegments  = 8
+windowLength = 256
+overlap      = round(0.25 * windowLength) # overlap of 75%
+ffTLength    = windowLength
+inputFs      = 48e3
+fs           = 16e3
+numFeatures  = ffTLength//2 + 1
+numSegments  = 8
 
 windowLength = 512
 overlap      = round(0.5 * windowLength) # overlap of 75%
@@ -166,6 +168,107 @@ def build_model(l2_strength):
                 metrics=[keras.metrics.RootMeanSquaredError('rmse')])
   return model
 
+
+class MelSpec(Layer):
+    def __init__(
+        self,
+        frame_length=ffTLength,
+        frame_step=overlap,
+        fft_length=None,
+        sampling_rate=16000,
+        num_mel_channels=128,
+        freq_min=125,
+        freq_max=8000,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.frame_length = frame_length
+        self.frame_step = frame_step
+        self.fft_length = fft_length
+        self.sampling_rate = sampling_rate
+        self.num_mel_channels = num_mel_channels
+        self.freq_min = freq_min
+        self.freq_max = freq_max
+        
+        # Defining mel filter. This filter will be multiplied with the STFT output
+        self.mel_filterbank = tf.signal.linear_to_mel_weight_matrix(
+            num_mel_bins=self.num_mel_channels,
+            num_spectrogram_bins=self.frame_length // 2 + 1,
+            sample_rate=self.sampling_rate,
+            lower_edge_hertz=self.freq_min,
+            upper_edge_hertz=self.freq_max,
+        )
+
+    def call(self, magnitude, training=True):
+        # We will only perform the transformation during training.
+        mel = tf.matmul(tf.square(magnitude), self.mel_filterbank)
+        return mel
+
+    def get_config(self):
+        config = super(MelSpec, self).get_config()
+        config.update(
+            {
+                "frame_length": self.frame_length,
+                "frame_step": self.frame_step,
+                "fft_length": self.fft_length,
+                "sampling_rate": self.sampling_rate,
+                "num_mel_channels": self.num_mel_channels,
+                "freq_min": self.freq_min,
+                "freq_max": self.freq_max,
+            }
+        )
+        return config
+
+class InverseMelSpec(Layer):
+    def __init__(
+        self,
+        frame_length=ffTLength,
+        frame_step=overlap,
+        fft_length=None,
+        sampling_rate=16000,
+        num_mel_channels=128,
+        freq_min=125,
+        freq_max=8000,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.frame_length = frame_length
+        self.frame_step = frame_step
+        self.fft_length = fft_length
+        self.sampling_rate = sampling_rate
+        self.num_mel_channels = num_mel_channels
+        self.freq_min = freq_min
+        self.freq_max = freq_max
+        
+        # Defining mel filter. This filter will be multiplied with the STFT output
+        self.mel_filterbank = tf.signal.linear_to_mel_weight_matrix(
+            num_mel_bins=self.num_mel_channels,
+            num_spectrogram_bins=self.frame_length // 2 + 1,
+            sample_rate=self.sampling_rate,
+            lower_edge_hertz=self.freq_min,
+            upper_edge_hertz=self.freq_max,
+        )
+
+    def call(self, magnitude, training=True):
+        # We will only perform the transformation during training.
+        mel = tf.matmul(magnitude, tf.transpose(self.mel_filterbank, perm=[1, 0]))
+        return mel
+
+    def get_config(self):
+        config = super(MelSpec, self).get_config()
+        config.update(
+            {
+                "frame_length": self.frame_length,
+                "frame_step": self.frame_step,
+                "fft_length": self.fft_length,
+                "sampling_rate": self.sampling_rate,
+                "num_mel_channels": self.num_mel_channels,
+                "freq_min": self.freq_min,
+                "freq_max": self.freq_max,
+            }
+        )
+        return config
+
 def get_mel_filter(samplerate, n_fft, n_mels, fmin, fmax):
     mel_basis = mel(sr=samplerate, n_fft=n_fft, n_mels=n_mels, fmin=fmin, fmax=fmax)
     return tf.convert_to_tensor(mel_basis, dtype=tf.float32)
@@ -175,23 +278,22 @@ def build_model_lstm():
   x = inputs
 
   mask = tf.identity(x)
-  
-  mel_matrix = get_mel_filter(samplerate=16000, n_fft=numFeatures, n_mels=numFeatures//2, fmin=0, fmax=8000)
-  mask = tf.matmul(mask, tf.transpose(mel_matrix, perm=[1, 0]))
+  mask = MelSpec()(mask)
 
-
+  print("Mask shape: ", mask.shape)
+  mask = tf.squeeze(mask, axis=0)
   mask = LSTM(numFeatures, activation='tanh', return_sequences=True)(mask)
   mask = Dense(128, activation='relu', use_bias=True, 
         kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask)
 
   mask = BatchNormalization()(mask)
 
-  mask = LSTM(256, activation='tanh')(mask)
+  mask = LSTM(256, activation='tanh', return_sequences=True)(mask)
   mask = Dense(128, activation='sigmoid', use_bias=True,
         kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask)
-
-  mask = tf.matmul(mask, mel_matrix)
-  x = tf.matmul(x, mask)
+  
+  mask = InverseMelSpec()(mask)
+  x = tf.multiply(x, mask)
 
   model = Model(inputs=inputs, outputs=x)
 
@@ -201,3 +303,4 @@ def build_model_lstm():
   model.compile(optimizer=optimizer, loss='mse', 
               metrics=[keras.metrics.RootMeanSquaredError('rmse')])
   return model
+

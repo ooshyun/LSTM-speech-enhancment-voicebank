@@ -15,3 +15,12 @@ You can create the dataset for yourself.
 
 - Download the [Mozilla Common Voice](https://voice.mozilla.org/) and [UrbanSound8K](https://urbansounddataset.weebly.com/urbansound8k.html) datasets.
 - Use the ```create_dataset.py``` script to create the TFRecord files. 
+
+
+
+- TODO
+- mel_filterbank needs the square of amplitude?
+
+- Refers 
+    - Train and Validate: https://keras.io/examples/audio/transformer_asr/
+    - Mel: https://keras.io/examples/audio/melgan_spectrogram_inversion/
