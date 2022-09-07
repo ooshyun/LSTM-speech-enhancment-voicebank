@@ -102,19 +102,14 @@ if model_name == "cnn":
   print(STFTFullyConvolutional.shape)
 
 elif model_name == "lstm":
-  loss_sec = 1/fs * overlap * (noise_stft_features.shape[1] - (noise_stft_features.shape[1]//numSegments * numSegments))
-  print(f"loss...{loss_sec} sec")
-
-  noise_stft_features = noise_stft_features[:, :noise_stft_features.shape[1]//numSegments * numSegments]
-  noisyPhase = noisyPhase[:, :noise_stft_features.shape[1]//numSegments * numSegments]
-
-  predictors = np.reshape(noise_stft_features, (noise_stft_features.shape[0], noise_stft_features.shape[1]//numSegments, numSegments))
-  predictors = np.transpose(predictors, (1, 2, 0))
+  predictors = prepare_input_features(noise_stft_features, numSegments, numFeatures)
+  predictors = np.reshape(predictors, (predictors.shape[0], predictors.shape[1], predictors.shape[2]))
+  predictors = np.transpose(predictors, (2, 0, 1)).astype(np.float32)
+  predictors = np.transpose(predictors, (0, 2, 1))
   predictors = np.expand_dims(predictors, axis=1)
+
   STFTFullyConvolutional = model.predict(predictors)
-  STFTFullyConvolutional = np.transpose(STFTFullyConvolutional, [1, 0, 2, 3])
-  nchannel, nsource, nsegment, fft_channels = STFTFullyConvolutional.shape
-  STFTFullyConvolutional = np.reshape(STFTFullyConvolutional, [nchannel, nsource*nsegment, fft_channels])
+  STFTFullyConvolutional = STFTFullyConvolutional[..., -1, :]
   STFTFullyConvolutional = np.squeeze(STFTFullyConvolutional)
   
 def revert_features_to_audio(features, phase, cleanMean=None, cleanStd=None):
@@ -150,6 +145,7 @@ print("Min:", np.min(denoisedAudioFullyConvolutional),"Max:",np.max(denoisedAudi
 
 print(denoisedAudioFullyConvolutional.shape)
 
+# plot
 f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharey=True)
 
 ax1.plot(cleanAudio)
