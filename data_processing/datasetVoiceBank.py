@@ -168,10 +168,10 @@ class DatasetVoiceBank:
                         example = get_tf_feature(x_, y_, p_)
                         writer.write(example.SerializeToString())
 
-                    # lstm, 1 sec segementation, 512 window, num channel, num segment, num frequency
-                    noise_stft_mag_features = prepare_input_features(noisy_stft_magnitude, numSegments=8, numFeatures=256) # already segmentation in 1 sec
-                
                 elif model_name == "lstm":
+                    # lstm, 1 sec segementation, 512 window, num channel, num segment, num frequency
+                    # noise_stft_mag_features = prepare_input_features(noisy_stft_magnitude, numSegments=8, numFeatures=256) # already segmentation in 1 sec
+                
                     noisy_stft_magnitude = np.transpose(noisy_stft_magnitude, (1, 0))
                     clean_stft_magnitude = np.transpose(clean_stft_magnitude, (1, 0))
                     noisy_stft_phase = np.transpose(noisy_stft_phase, (1, 0))
