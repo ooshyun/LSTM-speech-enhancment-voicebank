@@ -22,21 +22,26 @@ import keras.regularizers
 from librosa.filters import mel
 import logging
 
-# windowLength = 256
-# overlap      = round(0.25 * windowLength) # overlap of 75%
-# ffTLength    = windowLength
-# inputFs      = 48e3
-# fs           = 16e3
-# numFeatures  = ffTLength//2 + 1
-# numSegments  = 8
+_model_name = 'cnn'
+# _model_name = 'lstm'
 
-windowLength = 512
-overlap      = round(0.5 * windowLength) # overlap of 75%
-ffTLength    = windowLength
-inputFs      = 48e3
-fs           = 16e3
-numFeatures  = ffTLength//2 + 1
-numSegments  = 63 # 1 sec in 512 window, 256 hop, sr = 16000 Hz
+if _model_name == 'cnn':
+    windowLength = 256
+    overlap      = round(0.25 * windowLength) # overlap of 75%
+    ffTLength    = windowLength
+    inputFs      = 48e3
+    fs           = 16e3
+    numFeatures  = ffTLength//2 + 1
+    numSegments  = 8
+
+elif _model_name == 'lstm':
+    windowLength = 512
+    overlap      = round(0.5 * windowLength) # overlap of 75%
+    ffTLength    = windowLength
+    inputFs      = 48e3
+    fs           = 16e3
+    numFeatures  = ffTLength//2 + 1
+    numSegments  = 63 # 1 sec in 512 window, 256 hop, sr = 16000 Hz
 
 print("windowLength:",windowLength)
 print("overlap:",overlap)

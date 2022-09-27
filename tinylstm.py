@@ -52,8 +52,8 @@ class MaskTinyLSTM(keras.Model):
 
     def call(self, input):
         lstm_0_out = self.lstm_layer_0(input)
-        lstm_0_out = self.batch_norm_0(lstm_0_out) # [TODO] WHY use?
         lstm_0_out = self.fully_connected_layer_0(lstm_0_out)
+        lstm_0_out = self.batch_norm_0(lstm_0_out) # [TODO] WHY use?
 
         lstm_1_out = self.lstm_layer_1(lstm_0_out)
         lstm_1_out = self.fully_connected_layer_1(lstm_1_out)
