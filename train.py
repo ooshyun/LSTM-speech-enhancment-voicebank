@@ -38,8 +38,8 @@ device_lib.list_local_devices()
 tf.random.set_seed(999)
 np.random.seed(999)
 
-model_name = 'cnn'
-# model_name = 'lstm'
+# model_name = 'cnn'
+model_name = 'lstm'
 
 path_to_dataset = f"./records_{model_name}"
 
@@ -201,18 +201,18 @@ console_log_save_path = os.path.join(save_path, "debug.txt")
 
 early_stopping_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=50, restore_best_weights=True, baseline=None)
 logdir = os.path.join(f"./logs/{model_name}", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir, update_freq='batch', histogram_freq=1, write_grads=True, write_graph=True, write_images=True)
+tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir, update_freq='batch', histogram_freq=1, write_graph=True)
 
-# histogram_freq=0, write_graph=True, write_images=True : for monitoring the weight histogram
+# histogram_freq=0, write_graph=True: for monitoring the weight histogram
 
 checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_save_path, 
                                                          monitor='val_loss', save_best_only=True)
 time_callback = TimeHistory(filepath=console_log_save_path)
 
 model.fit(train_dataset,
-         steps_per_epoch=300, # you might need to change this
+         steps_per_epoch=200, # you might need to change this
          validation_data=test_dataset,
-         epochs=400,
+         epochs=1000,
          callbacks=[early_stopping_callback, tensorboard_callback, checkpoint_callback, time_callback]
         )
 

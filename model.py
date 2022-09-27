@@ -22,8 +22,8 @@ import keras.regularizers
 from librosa.filters import mel
 import logging
 
-_model_name = 'cnn'
-# _model_name = 'lstm'
+# _model_name = 'cnn'
+_model_name = 'lstm'
 
 if _model_name == 'cnn':
     windowLength = 256
