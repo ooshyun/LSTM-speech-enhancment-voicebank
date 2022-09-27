@@ -19,6 +19,8 @@ You can create the dataset for yourself.
 
 - TODO
 - mel_filterbank needs the square of amplitude?
+- After saving the model, warning is as below
+WARNING:absl:Found untraced functions such as lstm_cell_layer_call_fn, lstm_cell_layer_call_and_return_conditional_losses, lstm_cell_1_layer_call_fn, lstm_cell_1_layer_call_and_return_conditional_losses while saving (showing 4 of 4). These functions will not be directly callable after loading.
 
 - Refers 
     - Train and Validate: https://keras.io/examples/audio/transformer_asr/

@@ -4,10 +4,12 @@ if device_name != '/device:GPU:0':
   raise SystemError('GPU device not found')
 print('Found GPU at: {}'.format(device_name))
 
+import time
+import datetime
+
 import librosa
 import pandas as pd
 import os
-import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
@@ -147,31 +149,73 @@ def SDR(denoised, cleaned, eps=1e-7): # Signal to Distortion Ratio
     a_b = a / b
     return np.mean(10 * np.log10(a_b + eps))
 
-log_folder = Path(f"./logs/{model_name}")
-result_folder = Path(f"./result/{model_name}")
+class TimeHistory(tf.keras.callbacks.Callback):
+    def __init__(self, filepath):
+        super(TimeHistory, self).__init__()
+        self.filepath = filepath
 
-if not log_folder.is_dir():
-    log_folder.mkdir()
-if not result_folder.is_dir():
-    result_folder.mkdir()
+    def on_train_begin(self, logs={}):
+        self.epoch_times = []
+        self.batch_times = []
+        self.train_time = []
+        self.train_time.append(time.perf_counter())
+
+    def on_batch_begin(self, batch, logs={}):
+        self.batch_time_start = time.perf_counter()
+
+    def on_batch_end(self, batch, logs={}):
+        self.batch_times.append(time.perf_counter() - self.batch_time_start)
+
+    def on_epoch_begin(self, epoch, logs={}):
+        self.epoch_time_start = time.perf_counter()
+
+    def on_epoch_end(self, epoch, logs={}):
+        self.epoch_times.append(time.perf_counter() - self.epoch_time_start)
+
+    def on_train_end(self, logs={}):
+        self.train_time.append(time.perf_counter())
+
+        log_file_path = self.filepath
+        with open(log_file_path, "w") as tmp:
+            tmp.write(f"  Total time\n")
+            tmp.write(f"start    : {time_callback.train_time[0]} sec\n")
+            tmp.write(f"end      : {time_callback.train_time[1]} sec\n")
+            tmp.write(f"duration : {time_callback.train_time[1]- time_callback.train_time[0]} sec\n")
+            
+            tmp.write(f"  Epoch time, {len(time_callback.epoch_times)}\n")
+            for epoch, t in enumerate(time_callback.epoch_times):
+                tmp.write(f"{epoch} : {t}\n")
+
+            tmp.write(f"  Batch time, {len(time_callback.batch_times)}\n")
+            
+            for num, t in enumerate(time_callback.batch_times):
+                tmp.write(f"{t} ")
+                if num % 100 == 99:
+                    tmp.write(f"\n")
+            
+save_path = os.path.join(f"./result/{model_name}", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+
+checkpoint_save_path = os.path.join(save_path, "checkpoint/model-{epoch:02d}-{val_loss:.4f}.hdf5")
+model_save_path = os.path.join(save_path, "model")
+console_log_save_path = os.path.join(save_path, "debug.txt")
 
 early_stopping_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=50, restore_best_weights=True, baseline=None)
 logdir = os.path.join(f"./logs/{model_name}", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir, update_freq='batch')
 
-save_path = f'./result/{model_name}/checkpoint' + "/model-{epoch:02d}-{val_loss:.4f}.hdf5"
-checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=save_path, 
+checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_save_path, 
                                                          monitor='val_loss', save_best_only=True)
+time_callback = TimeHistory(filepath=console_log_save_path)
 
 model.fit(train_dataset,
-         steps_per_epoch=600, # you might need to change this
+         steps_per_epoch=8000, # you might need to change this
          validation_data=test_dataset,
          epochs=200,
-         callbacks=[early_stopping_callback, tensorboard_callback, checkpoint_callback]
+         callbacks=[early_stopping_callback, tensorboard_callback, checkpoint_callback, time_callback]
         )
 
 val_loss = model.evaluate(test_dataset)[0]
 if val_loss < baseline_val_loss:
   print("New model saved.")
-  keras.models.save_model(model, f'.result/{model_name}/model', overwrite=True, include_optimizer=True)
+  keras.models.save_model(model, model_save_path, overwrite=True, include_optimizer=True)
   # model.save('./denoiser_cnn_log_mel_generator.h5')
