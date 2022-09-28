@@ -210,9 +210,9 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_sav
 time_callback = TimeHistory(filepath=console_log_save_path)
 
 model.fit(train_dataset,
-         steps_per_epoch=200, # you might need to change this
+         steps_per_epoch=800, # you might need to change this
          validation_data=test_dataset,
-         epochs=1000,
+         epochs=400,
          callbacks=[early_stopping_callback, tensorboard_callback, checkpoint_callback, time_callback]
         )
 

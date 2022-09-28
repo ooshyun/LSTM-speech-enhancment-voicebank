@@ -287,12 +287,12 @@ def build_model_lstm():
   mask = tf.squeeze(x, axis=1) # merge channel
   mask = MelSpec()(mask)
   mask = LSTM(256, activation='tanh', return_sequences=True)(mask)
-  mask = Dense(128, activation='relu', use_bias=True, 
-        kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask)
-
+  mask = LSTM(256, activation='tanh', return_sequences=True)(mask)
+  
   mask = BatchNormalization()(mask)
 
-  mask = LSTM(256, activation='tanh', return_sequences=True)(mask)
+  mask = Dense(128, activation='relu', use_bias=True, 
+        kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask)
   mask = Dense(128, activation='sigmoid', use_bias=True,
         kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask)
   
