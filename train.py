@@ -40,8 +40,12 @@ np.random.seed(999)
 
 # model_name = 'cnn'
 model_name = 'lstm'
+len_data = 3
 
-path_to_dataset = f"./records_{model_name}"
+if len_data == 3 and model_name == 'lstm':
+    path_to_dataset = f"./records_{model_name}_3sec"
+else:
+    path_to_dataset = f"./records_{model_name}"
 
 # get training and validation tf record file names
 train_tfrecords_filenames = glob.glob(os.path.join(path_to_dataset, 'train_*'))
@@ -63,12 +67,18 @@ if model_name == "cnn":
 
 elif model_name == "lstm":
     windowLength = 512
-    overlap      = round(0.5 * windowLength) # overlap of 75%
+    overlap      = round(0.5 * windowLength) # overlap of 50%
     ffTLength    = windowLength
     inputFs      = 48e3
     fs           = 16e3
     numFeatures  = ffTLength//2 + 1
-    numSegments  = 63 # 1 sec in 512 window, 256 hop, sr = 16000 Hz
+    if len_data == 3 and model_name == 'lstm':
+        numSegments = 189 # 3.024 sec in 512 window, 256 hop, sr = 16000 Hz
+    else:
+        numSegments  = 63 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
+
+else:
+    NotImplementedError("Only implemented cnn and lstm")
 
 print("windowLength:",windowLength)
 print("overlap:",overlap)

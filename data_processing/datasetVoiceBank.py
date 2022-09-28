@@ -108,7 +108,7 @@ class DatasetVoiceBank:
         counter = 0
         # p = multiprocessing.Pool(multiprocessing.cpu_count())
 
-        folder = Path(f"./records_{model_name}")
+        folder = Path(f"./records_{model_name}_3sec")
         
         if folder.is_dir():
             pass
