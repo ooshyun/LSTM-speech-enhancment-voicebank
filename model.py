@@ -24,6 +24,24 @@ import logging
 
 import keras.optimizers
 
+from metrics import NB_PESQ, WB_PESQ, STOI, SI_SDR
+
+def nb_pesq(ref, est):
+    score = tf.py_function(func=NB_PESQ, inp=[ref, est], Tout=tf.float32,  name='nb_pesq')
+    return score
+
+def wb_pesq(ref, est):
+    score = tf.py_function(func=WB_PESQ, inp=[ref, est], Tout=tf.float32,  name='wb_pesq')
+    return score
+
+def stoi(ref, est):
+    score = tf.py_function(func=STOI, inp=[ref, est], Tout=tf.float32,  name='stoi')
+    return score
+
+def sisdr(ref, est):
+    score = tf.py_function(func=SI_SDR, inp=[ref, est], Tout=tf.float32,  name='sisdr')
+    return score
+
 # _model_name = 'cnn'
 _model_name = 'lstm'
 
@@ -305,10 +323,10 @@ def build_model_lstm():
   model = Model(inputs=inputs, outputs=x)
 
   optimizer = keras.optimizers.SGD(1e-3)
-  #optimizer = keras.optimizers.Adam(1e-3)
+#   optimizer = keras.optimizers.Adam(3e-4)
   #optimizer = RAdam(total_steps=10000, warmup_proportion=0.1, min_lr=3e-4)
 
   model.compile(optimizer=optimizer, loss='mse', 
-              metrics=[keras.metrics.RootMeanSquaredError('rmse')])
+              metrics=[keras.metrics.RootMeanSquaredError('rmse'), nb_pesq, wb_pesq, stoi, sisdr])
   return model
 

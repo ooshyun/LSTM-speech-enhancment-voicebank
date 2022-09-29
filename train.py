@@ -40,7 +40,7 @@ np.random.seed(999)
 
 # model_name = 'cnn'
 model_name = 'lstm'
-len_data = 3
+len_data = 1
 
 if len_data == 3 and model_name == 'lstm':
     path_to_dataset = f"./records_{model_name}_3sec"
@@ -120,7 +120,6 @@ def tf_record_parser(record):
     else:
         raise ValueError("Model didn't implement...")
 
-
 train_dataset = tf.data.TFRecordDataset([train_tfrecords_filenames])
 train_dataset = train_dataset.map(tf_record_parser)
 train_dataset = train_dataset.shuffle(8192)
@@ -145,8 +144,6 @@ model.summary()
 
 # You might need to install the following dependencies: sudo apt install python-pydot python-pydot-ng graphviz
 tf.keras.utils.plot_model(model, show_shapes=True, dpi=64)
-
-# %tensorboard --logdir logs
 
 baseline_val_loss = model.evaluate(test_dataset)[0]
 print(f"Baseline accuracy {baseline_val_loss}")
@@ -203,7 +200,8 @@ class TimeHistory(tf.keras.callbacks.Callback):
                 tmp.write(f"{t} ")
                 if num % 100 == 99:
                     tmp.write(f"\n")
-            
+
+
 save_path = os.path.join(f"./result/{model_name}", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 checkpoint_save_path = os.path.join(save_path, "checkpoint/model-{epoch:02d}-{val_loss:.4f}.hdf5")
@@ -217,17 +215,13 @@ tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir, update_freq='batch
 # histogram_freq=0, write_graph=True: for monitoring the weight histogram
 
 checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_save_path, 
-                                                         monitor='val_loss', save_best_only=True)
+                                                         test='val_loss', save_best_only=True)
 time_callback = TimeHistory(filepath=console_log_save_path)
 
 model.fit(train_dataset,
-<<<<<<< HEAD
-         steps_per_epoch=400, # you might need to change this
-=======
-         steps_per_epoch=800, # you might need to change this
->>>>>>> 0d38338e997f229f01d58dce12e8ad68c46920dc
+         steps_per_epoch=1000, # you might need to change this
          validation_data=test_dataset,
-         epochs=400,
+         epochs=600,
          callbacks=[early_stopping_callback, tensorboard_callback, checkpoint_callback, time_callback]
         )
 
