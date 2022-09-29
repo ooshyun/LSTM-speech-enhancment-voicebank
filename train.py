@@ -118,6 +118,7 @@ train_dataset = train_dataset.repeat()
 train_dataset = train_dataset.batch(512)
 train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
+# val_dataset
 
 test_dataset = tf.data.TFRecordDataset([val_tfrecords_filenames])
 test_dataset = test_dataset.map(tf_record_parser)
@@ -210,9 +211,9 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_sav
 time_callback = TimeHistory(filepath=console_log_save_path)
 
 model.fit(train_dataset,
-         steps_per_epoch=200, # you might need to change this
+         steps_per_epoch=400, # you might need to change this
          validation_data=test_dataset,
-         epochs=1000,
+         epochs=400,
          callbacks=[early_stopping_callback, tensorboard_callback, checkpoint_callback, time_callback]
         )
 

@@ -22,6 +22,8 @@ import keras.regularizers
 from librosa.filters import mel
 import logging
 
+import keras.optimizers
+
 # _model_name = 'cnn'
 _model_name = 'lstm'
 
@@ -302,7 +304,8 @@ def build_model_lstm():
   x = Multiply()([x, mask])
   model = Model(inputs=inputs, outputs=x)
 
-  optimizer = keras.optimizers.Adam(3e-4)
+  optimizer = keras.optimizers.SGD(1e-3)
+  #optimizer = keras.optimizers.Adam(1e-3)
   #optimizer = RAdam(total_steps=10000, warmup_proportion=0.1, min_lr=3e-4)
 
   model.compile(optimizer=optimizer, loss='mse', 
