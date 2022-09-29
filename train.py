@@ -40,8 +40,12 @@ np.random.seed(999)
 
 # model_name = 'cnn'
 model_name = 'lstm'
+len_data = 3
 
-path_to_dataset = f"./records_{model_name}"
+if len_data == 3 and model_name == 'lstm':
+    path_to_dataset = f"./records_{model_name}_3sec"
+else:
+    path_to_dataset = f"./records_{model_name}"
 
 # get training and validation tf record file names
 train_tfrecords_filenames = glob.glob(os.path.join(path_to_dataset, 'train_*'))
@@ -63,12 +67,18 @@ if model_name == "cnn":
 
 elif model_name == "lstm":
     windowLength = 512
-    overlap      = round(0.5 * windowLength) # overlap of 75%
+    overlap      = round(0.5 * windowLength) # overlap of 50%
     ffTLength    = windowLength
     inputFs      = 48e3
     fs           = 16e3
     numFeatures  = ffTLength//2 + 1
-    numSegments  = 63 # 1 sec in 512 window, 256 hop, sr = 16000 Hz
+    if len_data == 3 and model_name == 'lstm':
+        numSegments = 189 # 3.024 sec in 512 window, 256 hop, sr = 16000 Hz
+    else:
+        numSegments  = 63 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
+
+else:
+    NotImplementedError("Only implemented cnn and lstm")
 
 print("windowLength:",windowLength)
 print("overlap:",overlap)
@@ -211,7 +221,11 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_sav
 time_callback = TimeHistory(filepath=console_log_save_path)
 
 model.fit(train_dataset,
+<<<<<<< HEAD
          steps_per_epoch=400, # you might need to change this
+=======
+         steps_per_epoch=800, # you might need to change this
+>>>>>>> 0d38338e997f229f01d58dce12e8ad68c46920dc
          validation_data=test_dataset,
          epochs=400,
          callbacks=[early_stopping_callback, tensorboard_callback, checkpoint_callback, time_callback]

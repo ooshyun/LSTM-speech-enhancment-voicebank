@@ -45,7 +45,7 @@ windowLength = 512
 config = {'windowLength': windowLength,
           'overlap': round(0.5 * windowLength),
           'fs': 16000,
-          'audio_max_duration': 1}
+          'audio_max_duration': 3}
 
 val_dataset = DatasetVoiceBank(clean_val_filenames, noisy_val_filenames, **config)
 val_dataset.create_tf_record(prefix='val', subset_size=2000)
