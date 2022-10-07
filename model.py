@@ -1,3 +1,4 @@
+from curses import window
 from keras.layers import (
   Conv2D, 
   Input, 
@@ -20,27 +21,21 @@ import tensorflow as tf
 from keras import Model, Sequential
 import keras.regularizers
 from librosa.filters import mel
+from librosa import istft
 import logging
 
+import numpy as np
 import keras.optimizers
 
-from metrics import NB_PESQ, WB_PESQ, STOI, SI_SDR
 
-def nb_pesq(ref, est):
-    score = tf.py_function(func=NB_PESQ, inp=[ref, est], Tout=tf.float32,  name='nb_pesq')
-    return score
-
-def wb_pesq(ref, est):
-    score = tf.py_function(func=WB_PESQ, inp=[ref, est], Tout=tf.float32,  name='wb_pesq')
-    return score
-
-def stoi(ref, est):
-    score = tf.py_function(func=STOI, inp=[ref, est], Tout=tf.float32,  name='stoi')
-    return score
-
-def sisdr(ref, est):
-    score = tf.py_function(func=SI_SDR, inp=[ref, est], Tout=tf.float32,  name='sisdr')
-    return score
+from metrics import (
+    SDR,
+    SDR_scratch,
+    SI_SDR,
+    STOI,
+    WB_PESQ,
+    NB_PESQ
+)
 
 # _model_name = 'cnn'
 _model_name = 'lstm'
@@ -299,10 +294,32 @@ def get_mel_filter(samplerate, n_fft, n_mels, fmin, fmax):
     mel_basis = mel(sr=samplerate, n_fft=n_fft, n_mels=n_mels, fmin=fmin, fmax=fmax)
     return tf.convert_to_tensor(mel_basis, dtype=tf.float32)
 
+def metrics_speech_keras(reference_stft, estimation_stft, sr=16000):
+    # (1, numSegments, numFeatures) -> # (1, numFeatures, numSegments)
+    win_length = (reference_stft.shape[-1]-1)*2
+    hop_length = round(win_length*0.5) if _model_name=='lstm' else round(win_length*0.25)
+
+    shape = reference_stft.shape
+    reference_stft_librosa = np.transpose(reference_stft, axes=shape[..., -1, -2])   # [TODO] should be complex, currently mag
+    estimation_stft_librosa = np.transpose(estimation_stft, axes=shape[..., -1, -2]) # [TODO] should be complex, currently mag
+
+    reference = istft(reference_stft_librosa, hop_length=hop_length, win_length=win_length, n_fft=win_length)
+    estimation = istft(estimation_stft_librosa, hop_length=hop_length, win_length=win_length, n_fft=win_length)
+
+    metric_list = [SDR, SDR_scratch, SI_SDR, STOI, WB_PESQ, NB_PESQ]
+
+    score = {}
+    for func_metric in metric_list:
+        score[func_metric.__name__] = tf.py_function(func=func_metric, inp=[reference, estimation], Tout=tf.float32,  name=func_metric.__name__) # tf 2.x
+    #score = tf.py_func( lambda y_true, y_pred : mse_AIFrenz(y_true, y_pred) , [y_true, y_pred], 'float32', stateful = False, name = 'custom_mse' ) # tf 1.x
+
+    return score
+
 def build_model_lstm():
-  inputs = Input(shape=[1, numSegments, numFeatures])
+  inputs = Input(shape=[2, 1, numSegments, numFeatures])
   
-  x = inputs
+  print("[DEBUG]: ", inputs.shape)
+  x = inputs[:, 0, ...] # [TODO] add phase layer
 
   mask = tf.squeeze(x, axis=1) # merge channel
   mask = MelSpec()(mask)
@@ -312,9 +329,9 @@ def build_model_lstm():
   mask = BatchNormalization()(mask)
 
   mask = Dense(128, activation='relu', use_bias=True, 
-        kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask)
+        kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask) # [TODO] check initialization method
   mask = Dense(128, activation='sigmoid', use_bias=True,
-        kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask)
+        kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask) # [TODO] check initialization method
   
   mask = InverseMelSpec()(mask)
   mask = tf.expand_dims(mask, axis=1) # merge channel
@@ -322,11 +339,10 @@ def build_model_lstm():
   x = Multiply()([x, mask])
   model = Model(inputs=inputs, outputs=x)
 
-  optimizer = keras.optimizers.SGD(1e-3)
-#   optimizer = keras.optimizers.Adam(3e-4)
+  optimizer = keras.optimizers.Adam(3e-4)
   #optimizer = RAdam(total_steps=10000, warmup_proportion=0.1, min_lr=3e-4)
 
   model.compile(optimizer=optimizer, loss='mse', 
-              metrics=[keras.metrics.RootMeanSquaredError('rmse'), nb_pesq, wb_pesq, stoi, sisdr])
+              metrics=[keras.metrics.RootMeanSquaredError('rmse')])
   return model
 

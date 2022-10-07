@@ -101,3 +101,28 @@ def get_tf_feature(noise_stft_mag_features, clean_stft_magnitude, noise_stft_pha
         'noise_stft_mag_features': _bytes_feature(noise_stft_mag_features),
         'clean_stft_magnitude': _bytes_feature(clean_stft_magnitude)}))
     return example
+
+
+def get_tf_feature_custom(noise_stft_mag_features, clean_stft_magnitude, noise_stft_phase, clean_stft_phase):
+    noise_stft_mag_features = noise_stft_mag_features.astype(np.float32).tostring()
+    clean_stft_magnitude = clean_stft_magnitude.astype(np.float32).tostring()
+    noise_stft_phase = noise_stft_phase.astype(np.float32).tostring()
+    clean_stft_phase = clean_stft_phase.astype(np.float32).tostring()
+
+    example = tf.train.Example(features=tf.train.Features(feature={
+        'noise_stft_phase': _bytes_feature(noise_stft_phase),
+        'noise_stft_mag_features': _bytes_feature(noise_stft_mag_features),
+        'clean_stft_phase': _bytes_feature(clean_stft_phase),
+        'clean_stft_magnitude': _bytes_feature(clean_stft_magnitude),
+        }))
+    return example
+
+def get_tf_feature_time(noisy, clean):
+    noisy = noisy.astype(np.float32).tostring()
+    clean = clean.astype(np.float32).tostring()
+
+    example = tf.train.Example(features=tf.train.Features(feature={
+        'noisy': _bytes_feature(noisy),
+        'clean': _bytes_feature(clean)
+        }))
+    return example

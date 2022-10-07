@@ -4,25 +4,20 @@ if device_name != '/device:GPU:0':
   raise SystemError('GPU device not found')
 print('Found GPU at: {}'.format(device_name))
 
+import librosa
+import scipy
 import time
 import datetime
 
-import librosa
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 import IPython.display as ipd
-import librosa.display
-import scipy
+
 import glob
 import numpy as np
-import math
-import warnings
-import pickle
-from sklearn.utils import shuffle
-import zipfile
 from data_processing.feature_extractor import FeatureExtractor
 from utils import prepare_input_features
 from model import build_model, build_model_lstm
@@ -40,10 +35,15 @@ np.random.seed(999)
 
 # model_name = 'cnn'
 model_name = 'lstm'
-len_data = 1
 
-if len_data == 3 and model_name == 'lstm':
-    path_to_dataset = f"./records_{model_name}_3sec"
+domain = 'freq'
+# domain = 'time'
+
+if model_name == 'lstm':
+    if domain == 'time':
+        path_to_dataset = f"./records_{model_name}_{domain}"
+    else:    
+        path_to_dataset = f"./records_{model_name}"
 else:
     path_to_dataset = f"./records_{model_name}"
 
@@ -72,10 +72,8 @@ elif model_name == "lstm":
     inputFs      = 48e3
     fs           = 16e3
     numFeatures  = ffTLength//2 + 1
-    if len_data == 3 and model_name == 'lstm':
-        numSegments = 189 # 3.024 sec in 512 window, 256 hop, sr = 16000 Hz
-    else:
-        numSegments  = 63 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
+    # numSegments = 189 # 3.024 sec in 512 window, 256 hop, sr = 16000 Hz
+    numSegments  = 63 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
 
 else:
     NotImplementedError("Only implemented cnn and lstm")
@@ -89,34 +87,82 @@ print("numFeatures:",numFeatures)
 print("numSegments:",numSegments)
 
 def tf_record_parser(record):
-    keys_to_features = {
+
+    if domain == 'time':
+        keys_to_features = {
+            "noisy": tf.io.FixedLenFeature((), tf.string, default_value=""),
+            'clean': tf.io.FixedLenFeature([], tf.string),
+        }
+
+        features = tf.io.parse_single_example(record, keys_to_features)
+
+        noisy = tf.io.decode_raw(features['noisy'], tf.float32)
+        clean = tf.io.decode_raw(features['clean'], tf.float32)
+
+        # noisy_stft = tf.signal.stft(noisy, frame_length=windowLength, frame_step=overlap, fft_length=windowLength)
+        # clean_stft = tf.signal.stft(clean, frame_length=windowLength, frame_step=overlap, fft_length=windowLength)
+        
+        window = scipy.signal.hamming(windowLength, sym=False)
+
+        noisy_stft = librosa.stft(noisy, n_fft=windowLength, win_length=windowLength, hop_length=overlap,
+                    window=window, center=True)
+        clean_stft = librosa.stft(clean, n_fft=windowLength, win_length=windowLength, hop_length=overlap,
+                    window=window, center=True)
+
+        noise_stft_mag_features = np.abs(noisy_stft)
+        noise_stft_phase = np.angle(noisy_stft)
+        clean_stft_magnitude = np.abs(clean_stft)
+        clean_stft_phase = np.angle(clean_stft)
+
+    if model_name == "cnn":
+        keys_to_features = {
         "noise_stft_phase": tf.io.FixedLenFeature((), tf.string, default_value=""),
         'noise_stft_mag_features': tf.io.FixedLenFeature([], tf.string),
         "clean_stft_magnitude": tf.io.FixedLenFeature((), tf.string)
-    }
+        }
 
-    features = tf.io.parse_single_example(record, keys_to_features)
+        features = tf.io.parse_single_example(record, keys_to_features)
 
-    noise_stft_mag_features = tf.io.decode_raw(features['noise_stft_mag_features'], tf.float32)
-    clean_stft_magnitude = tf.io.decode_raw(features['clean_stft_magnitude'], tf.float32)
-    noise_stft_phase = tf.io.decode_raw(features['noise_stft_phase'], tf.float32)
+        noise_stft_mag_features = tf.io.decode_raw(features['noise_stft_mag_features'], tf.float32)
+        clean_stft_magnitude = tf.io.decode_raw(features['clean_stft_magnitude'], tf.float32)
+        noise_stft_phase = tf.io.decode_raw(features['noise_stft_phase'], tf.float32)
 
-    if model_name == "cnn":
         # reshape input and annotation images, cnn
         noise_stft_mag_features = tf.reshape(noise_stft_mag_features, (numFeatures, numSegments, 1), name="noise_stft_mag_features")
-        clean_stft_magnitude = tf.reshape(clean_stft_magnitude, (numFeatures, 1, 1), name="clean_stft_magnitude")
+        clean_stft_magnitude = tf.reshape(clean_stft_magnitude, (numFeatures, 1, 1), name="clean_stft_magnitude") # [TODO] Chekc
         noise_stft_phase = tf.reshape(noise_stft_phase, (numFeatures,), name="noise_stft_phase")
     
+        noisy_stft = tf.stack([noise_stft_mag_features, noise_stft_phase])
+        clean_stft = tf.stack([clean_stft_magnitude, clean_stft_phase])
+
         return noise_stft_mag_features , clean_stft_magnitude
 
     elif model_name == 'lstm':
+        if domain != 'time':
+            keys_to_features = {
+                "noise_stft_phase": tf.io.FixedLenFeature((), tf.string, default_value=""),
+                'noise_stft_mag_features': tf.io.FixedLenFeature([], tf.string),
+                "clean_stft_phase": tf.io.FixedLenFeature((), tf.string),
+                "clean_stft_magnitude": tf.io.FixedLenFeature((), tf.string)
+            }
+            features = tf.io.parse_single_example(record, keys_to_features)
+
+            noise_stft_mag_features = tf.io.decode_raw(features['noise_stft_mag_features'], tf.float32)
+            clean_stft_magnitude = tf.io.decode_raw(features['clean_stft_magnitude'], tf.float32)
+            noise_stft_phase = tf.io.decode_raw(features['noise_stft_phase'], tf.float32)
+            clean_stft_phase = tf.io.decode_raw(features['clean_stft_phase'], tf.float32)
+
+        # print(clean_stft_phase.shape)
+
         # reshape input and annotation images, lstm
         noise_stft_mag_features = tf.reshape(noise_stft_mag_features, (1, numSegments, numFeatures), name="noise_stft_mag_features")
         clean_stft_magnitude = tf.reshape(clean_stft_magnitude, (1, numSegments, numFeatures), name="clean_stft_magnitude")
-        noise_stft_phase = tf.reshape(noise_stft_phase, (numFeatures,), name="noise_stft_phase")
-    
-        return noise_stft_mag_features, clean_stft_magnitude
 
+        noise_stft_phase = tf.reshape(noise_stft_phase, (1, numSegments, numFeatures), name="noise_stft_phase")
+        clean_stft_phase = tf.reshape(clean_stft_phase, (1, numSegments, numFeatures), name="clean_stft_phase")    
+
+        noisy_stft = tf.stack([noise_stft_mag_features, noise_stft_phase])
+        clean_stft = tf.stack([clean_stft_magnitude, clean_stft_phase])
     else:
         raise ValueError("Model didn't implement...")
 
@@ -143,19 +189,10 @@ else:
 model.summary()
 
 # You might need to install the following dependencies: sudo apt install python-pydot python-pydot-ng graphviz
-tf.keras.utils.plot_model(model, show_shapes=True, dpi=64)
+# tf.keras.utils.plot_model(model, show_shapes=True, dpi=64)
 
 baseline_val_loss = model.evaluate(test_dataset)[0]
 print(f"Baseline accuracy {baseline_val_loss}")
-
-def l2_norm(vector):
-    return np.square(vector)
-
-def SDR(denoised, cleaned, eps=1e-7): # Signal to Distortion Ratio
-    a = l2_norm(denoised)
-    b = l2_norm(denoised - cleaned)
-    a_b = a / b
-    return np.mean(10 * np.log10(a_b + eps))
 
 class TimeHistory(tf.keras.callbacks.Callback):
     def __init__(self, filepath):
@@ -219,9 +256,9 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_sav
 time_callback = TimeHistory(filepath=console_log_save_path)
 
 model.fit(train_dataset,
-         steps_per_epoch=1000, # you might need to change this
+         steps_per_epoch=1, # you might need to change this
          validation_data=test_dataset,
-         epochs=600,
+         epochs=1,
          callbacks=[early_stopping_callback, tensorboard_callback, checkpoint_callback, time_callback]
         )
 

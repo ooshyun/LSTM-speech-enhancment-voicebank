@@ -2,6 +2,29 @@ import numpy as np
 from pesq import pesq
 from pypesq import pesq as nb_pesq
 from pystoi.stoi import stoi
+from museval.metrics import bss_eval
+
+def l2_norm(vector):
+    return np.square(vector)
+
+def SDR_scratch(denoised, cleaned, eps=1e-7): # Signal to Distortion Ratio
+    a = l2_norm(denoised)
+    b = l2_norm(denoised - cleaned)
+    a_b = a / b
+    return np.mean(10 * np.log10(a_b + eps))
+
+def SDR(reference, estimation, sr=16000):
+    """Signal to Distortion Ratio (SDR) from museval
+
+    Reference
+    ---------
+    - https://github.com/sigsep/sigsep-mus-eval
+    - Vincent, E., Gribonval, R., & Fevotte, C. (2006). Performance measurement in blind audio source separation.
+    IEEE Transactions on Audio, Speech and Language Processing, 14(4), 1462-1469.
+
+    """
+    sdr, _, _, _, _ = bss_eval(reference, estimation)
+    return sdr
 
 
 def SI_SDR(reference, estimation, sr=16000):
