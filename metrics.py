@@ -1,17 +1,8 @@
 import numpy as np
 from pesq import pesq
 from pypesq import pesq as nb_pesq
-from pystoi.stoi import stoi
+from pystoi import stoi
 from museval.metrics import bss_eval
-
-def l2_norm(vector):
-    return np.square(vector)
-
-def SDR_scratch(denoised, cleaned, eps=1e-7): # Signal to Distortion Ratio
-    a = l2_norm(denoised)
-    b = l2_norm(denoised - cleaned)
-    a_b = a / b
-    return np.mean(10 * np.log10(a_b + eps))
 
 def SDR(reference, estimation, sr=16000):
     """Signal to Distortion Ratio (SDR) from museval
@@ -23,9 +14,15 @@ def SDR(reference, estimation, sr=16000):
     IEEE Transactions on Audio, Speech and Language Processing, 14(4), 1462-1469.
 
     """
-    sdr, _, _, _, _ = bss_eval(reference, estimation)
-    return sdr
-
+    reference_numpy = reference.numpy()
+    estimation_numpy = estimation.numpy()
+    sdr_batch = np.empty(shape=(reference_numpy.shape[0], reference_numpy.shape[1]))
+    
+    for batch in range(reference_numpy.shape[0]):
+        for ch in range(reference_numpy.shape[1]):
+            sdr_batch[batch, ch], _, _, _, _ = bss_eval(reference_numpy[batch, ch], estimation_numpy[batch, ch])    
+    sdr_batch = np.mean(sdr_batch)
+    return sdr_batch
 
 def SI_SDR(reference, estimation, sr=16000):
     """Scale-Invariant Signal-to-Distortion Ratio (SI-SDR)。
@@ -40,7 +37,7 @@ def SI_SDR(reference, estimation, sr=16000):
     References:
         SDR- Half- Baked or Well Done? (http://www.merl.com/publications/docs/TR2019-013.pdf)
     """
-    estimation, reference = np.broadcast_arrays(estimation, reference)
+    estimation, reference = np.broadcast_arrays(estimation, reference)    
     reference_energy = np.sum(reference**2, axis=-1, keepdims=True)
 
     optimal_scaling = (
@@ -51,17 +48,44 @@ def SI_SDR(reference, estimation, sr=16000):
 
     noise = estimation - projection
 
-    ratio = np.sum(projection**2, axis=-1) / np.sum(noise**2, axis=-1)
+    ratio = np.sum(projection**2, axis=-1) / np.sum(noise**2, axis=-1)    
+    ratio = np.mean(ratio)
     return 10 * np.log10(ratio)
 
 
-def STOI(ref, est, sr=16000):
-    return stoi(ref, est, sr, extended=False)
+def STOI(reference, estimation, sr=16000):
+    reference_numpy = reference.numpy()
+    estimation_numpy = estimation.numpy()
+    stoi_batch = np.empty(shape=(reference_numpy.shape[0], reference_numpy.shape[1]))
+    for batch in range(reference_numpy.shape[0]):
+        for ch in range(reference_numpy.shape[1]):
+            stoi_batch[batch, ch] = stoi(reference_numpy[batch, ch], estimation_numpy[batch, ch], sr, extended=False)    
+    
+    stoi_batch = np.mean(stoi_batch)
+    return stoi_batch
+
+def WB_PESQ(reference, estimation, sr=16000):
+    reference_numpy = reference.numpy()
+    estimation_numpy = estimation.numpy()
+    score = 0
+    for ref_batch, est_batch in zip(reference_numpy, estimation_numpy):
+        for ref_ch, est_ch in zip(ref_batch, est_batch):
+            score += pesq(sr, ref_ch, est_ch, "wb")
+    score /= reference.shape[0]*reference.shape[1] if reference.shape[0] is not None else reference.shape[1]
+    score = np.squeeze(score)
+    return score
 
 
-def WB_PESQ(ref, est, sr=16000):
-    return pesq(sr, ref, est, "wb")
+def NB_PESQ(reference, estimation, sr=16000):
+    reference_numpy = reference.numpy()
+    estimation_numpy = estimation.numpy()   
+    score = 0
 
-
-def NB_PESQ(ref, est, sr=16000):
-    return nb_pesq(ref, est, sr)
+    for ref_batch, est_batch in zip(reference_numpy, estimation_numpy):
+        for ref_ch, est_ch in zip(ref_batch, est_batch):
+            # print(ref_ch.shape, est_ch.shape, type(ref_ch), type(est_ch))
+            # print(ref_ch, est_ch)
+            score += nb_pesq(sr, ref_ch, est_ch)
+    score /= reference.shape[0]*reference.shape[1] if reference.shape[0] is not None else reference.shape[1]
+    score = np.squeeze(score)
+    return score

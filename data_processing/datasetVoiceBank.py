@@ -179,6 +179,8 @@ class DatasetVoiceBank:
                     noisy_stft_phase = np.expand_dims(noisy_stft_phase, axis=0)
                     clean_stft_phase = np.expand_dims(clean_stft_phase, axis=0)
 
+                    print("[DEBUG]: ", noisy_stft_magnitude.shape, noisy_stft_phase.shape, clean_stft_magnitude.shape, clean_stft_phase.shape)
+
                     for x_, y_, p_, p_c in zip(noisy_stft_magnitude, clean_stft_magnitude, noisy_stft_phase, clean_stft_phase):
                         example = get_tf_feature_custom(x_, y_, p_, p_c)
                         writer.write(example.SerializeToString())    

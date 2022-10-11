@@ -22,7 +22,7 @@ warnings.filterwarnings(action='ignore')
 # noise_test_filenames = us8K.get_test_filenames()
 
 voiceBankDEMAND_basepath = '/Users/seunghyunoh/workplace/study/NoiseReduction/Tiny-SpeechEnhancement/data/VoiceBankDEMAND/DS_10283_2791'
-voiceBankDEMAND_basepath = '/home/daniel0413/workplace/project/SpeechEnhancement/TinyML/data/VoiceBankDEMAND'
+# voiceBankDEMAND_basepath = '/home/daniel0413/workplace/project/SpeechEnhancement/TinyML/data/VoiceBankDEMAND'
 
 voiceBank = VoiceBandDEMAND(voiceBankDEMAND_basepath, val_dataset_percent=0.3)
 clean_train_filenames, noisy_train_filenames, clean_val_filenames, noisy_val_filenames = voiceBank.get_train_val_filenames()
@@ -46,7 +46,7 @@ windowLength = 512
 config = {'windowLength': windowLength,
           'overlap': round(0.5 * windowLength),
           'fs': 16000,
-          'audio_max_duration': 3}
+          'audio_max_duration': 1.008}
 
 val_dataset = DatasetVoiceBank(clean_val_filenames, noisy_val_filenames, **config)
 val_dataset.create_tf_record(prefix='val', subset_size=2000)

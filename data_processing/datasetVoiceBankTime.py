@@ -126,6 +126,8 @@ class DatasetVoiceBankTime:
                 noisy = o[0]
                 clean = o[1]
 
+                print("[DEBUG]: ", noisy.shape, clean.shape)
+
                 for n, c in zip(noisy, clean):
                     example = get_tf_feature_time(n, c)
                     writer.write(example.SerializeToString())    

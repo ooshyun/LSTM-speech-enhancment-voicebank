@@ -29,38 +29,37 @@ import keras.optimizers
 
 
 from metrics import (
-    SDR,
-    SDR_scratch,
     SI_SDR,
-    STOI,
     WB_PESQ,
+    SDR,
+    STOI,
     NB_PESQ
 )
 
 # _model_name = 'cnn'
 _model_name = 'lstm'
 
-if _model_name == 'cnn':
-    windowLength = 256
-    overlap      = round(0.25 * windowLength) # overlap of 75%
-    ffTLength    = windowLength
+if _model_name == "cnn":
+    win_length = 256
+    overlap      = round(0.25 * win_length) # overlap of 75%
+    n_fft    = win_length
     inputFs      = 48e3
     fs           = 16e3
-    numFeatures  = ffTLength//2 + 1
+    numFeatures  = n_fft//2 + 1
     numSegments  = 8
 
-elif _model_name == 'lstm':
-    windowLength = 512
-    overlap      = round(0.5 * windowLength) # overlap of 75%
-    ffTLength    = windowLength
+elif _model_name == "lstm":
+    win_length = 512
+    overlap      = round(0.5 * win_length) # overlap of 50%
+    n_fft    = win_length
     inputFs      = 48e3
     fs           = 16e3
-    numFeatures  = ffTLength//2 + 1
-    numSegments  = 63 # 1 sec in 512 window, 256 hop, sr = 16000 Hz
+    numFeatures  = n_fft//2 + 1
+    numSegments  = 62 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
 
-print("windowLength:",windowLength)
+print("win_length:",win_length)
 print("overlap:",overlap)
-print("ffTLength:",ffTLength)
+print("n_fft:",n_fft)
 print("inputFs:",inputFs)
 print("fs:",fs)
 print("numFeatures:",numFeatures)
@@ -193,7 +192,7 @@ def build_model(l2_strength):
 class MelSpec(Layer):
     def __init__(
         self,
-        frame_length=ffTLength,
+        frame_length=n_fft,
         frame_step=overlap,
         fft_length=None,
         sampling_rate=16000,
@@ -243,7 +242,7 @@ class MelSpec(Layer):
 class InverseMelSpec(Layer):
     def __init__(
         self,
-        frame_length=ffTLength,
+        frame_length=n_fft,
         frame_step=overlap,
         fft_length=None,
         sampling_rate=16000,
@@ -294,33 +293,60 @@ def get_mel_filter(samplerate, n_fft, n_mels, fmin, fmax):
     mel_basis = mel(sr=samplerate, n_fft=n_fft, n_mels=n_mels, fmin=fmin, fmax=fmax)
     return tf.convert_to_tensor(mel_basis, dtype=tf.float32)
 
-def metrics_speech_keras(reference_stft, estimation_stft, sr=16000):
-    # (1, numSegments, numFeatures) -> # (1, numFeatures, numSegments)
-    win_length = (reference_stft.shape[-1]-1)*2
-    hop_length = round(win_length*0.5) if _model_name=='lstm' else round(win_length*0.25)
+class SpeechMetric(tf.keras.metrics.Metric):
+  """        
+    [V] SI_SDR,     pass, after function check, value check
+    [V] WB_PESQ,    pass, after function check, value check
+    [ ] STOI,       fail, np.matmul, (15, 257) @ (257, 74) -> OMP: Error #131: Thread identifier invalid, zsh: abort
+    [ ] NB_PESQ     fail, ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+    [ ] SDR,        fail, MP: Error #131: Thread identifier invalid. zsh: abort      python train.py -> maybe batch related?
+  """
+  def __init__(self, metric, name='sisdr', **kwargs):
+    super(SpeechMetric, self).__init__(name=name, **kwargs)
+    self.metric = metric 
+    self.score = self.add_weight(name=f"{name}_value", initializer='zeros')
+    self.total = self.add_weight(name='total', initializer='zeros')
 
-    shape = reference_stft.shape
-    reference_stft_librosa = np.transpose(reference_stft, axes=shape[..., -1, -2])   # [TODO] should be complex, currently mag
-    estimation_stft_librosa = np.transpose(estimation_stft, axes=shape[..., -1, -2]) # [TODO] should be complex, currently mag
+  def update_state(self, y_true, y_pred, sample_weight=None):
+    reference_stft = y_true
+    estimation_stft = y_pred
 
-    reference = istft(reference_stft_librosa, hop_length=hop_length, win_length=win_length, n_fft=win_length)
-    estimation = istft(estimation_stft_librosa, hop_length=hop_length, win_length=win_length, n_fft=win_length)
+    reference_amp = reference_stft[..., 0, :, :, :] # phase/amp, ch, frame, freq
+    reference_phase = reference_stft[..., 1, :, :, :]
+    estimation_amp = estimation_stft[..., 0, :, :, :]
+    estimation_phase = estimation_stft[..., 1, :, :, :]
 
-    metric_list = [SDR, SDR_scratch, SI_SDR, STOI, WB_PESQ, NB_PESQ]
+    reference_amp = tf.cast(reference_amp, dtype=tf.complex64)
+    reference_phase = tf.cast(reference_phase, dtype=tf.complex64)
+    estimation_amp = tf.cast(estimation_amp, dtype=tf.complex64)
+    estimation_phase = tf.cast(estimation_phase, dtype=tf.complex64)
 
-    score = {}
-    for func_metric in metric_list:
-        score[func_metric.__name__] = tf.py_function(func=func_metric, inp=[reference, estimation], Tout=tf.float32,  name=func_metric.__name__) # tf 2.x
-    #score = tf.py_func( lambda y_true, y_pred : mse_AIFrenz(y_true, y_pred) , [y_true, y_pred], 'float32', stateful = False, name = 'custom_mse' ) # tf 1.x
+    reference_stft_librosa = reference_amp*tf.math.exp(-1j*reference_phase)
+    estimation_stft_librosa = estimation_amp*tf.math.exp(-1j*reference_phase)
 
-    return score
+    window_fn = tf.signal.hamming_window
+
+    reference = tf.signal.inverse_stft(
+      reference_stft_librosa, frame_length=n_fft, frame_step=overlap,
+      window_fn=tf.signal.inverse_stft_window_fn(
+         frame_step=overlap, forward_window_fn=window_fn))
+    
+    estimation = tf.signal.inverse_stft(
+      estimation_stft_librosa, frame_length=n_fft, frame_step=overlap,
+      window_fn=tf.signal.inverse_stft_window_fn(
+         frame_step=overlap, forward_window_fn=window_fn))
+
+    self.score.assign_add(tf.py_function(func=self.metric, inp=[reference, estimation], Tout=tf.float32,  name='sisdr-metric')) # tf 2.x
+    self.total.assign_add(1)
+    
+  def result(self):
+    return self.score / self.total
 
 def build_model_lstm():
-  inputs = Input(shape=[2, 1, numSegments, numFeatures])
+  inputs = Input(shape=[2, 1, numSegments, numFeatures])  
   
-  print("[DEBUG]: ", inputs.shape)
-  x = inputs[:, 0, ...] # [TODO] add phase layer
-
+  x = inputs[:, 0, ...]
+  
   mask = tf.squeeze(x, axis=1) # merge channel
   mask = MelSpec()(mask)
   mask = LSTM(256, activation='tanh', return_sequences=True)(mask)
@@ -336,13 +362,16 @@ def build_model_lstm():
   mask = InverseMelSpec()(mask)
   mask = tf.expand_dims(mask, axis=1) # merge channel
   
-  x = Multiply()([x, mask])
+  x = Multiply()([inputs, mask])
   model = Model(inputs=inputs, outputs=x)
 
   optimizer = keras.optimizers.Adam(3e-4)
   #optimizer = RAdam(total_steps=10000, warmup_proportion=0.1, min_lr=3e-4)
 
   model.compile(optimizer=optimizer, loss='mse', 
-              metrics=[keras.metrics.RootMeanSquaredError('rmse')])
+              metrics=[keras.metrics.RootMeanSquaredError('rmse'), 
+              SpeechMetric(metric=SI_SDR, name='sisdr'),
+              SpeechMetric(metric=WB_PESQ, name='wb_pesq'),
+              ])
   return model
 

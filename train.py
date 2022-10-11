@@ -36,8 +36,8 @@ np.random.seed(999)
 # model_name = 'cnn'
 model_name = 'lstm'
 
-domain = 'freq'
-# domain = 'time'
+# domain = 'freq'
+domain = 'time'
 
 if model_name == 'lstm':
     if domain == 'time':
@@ -57,70 +57,58 @@ print("Training file names: ", train_tfrecords_filenames)
 print("Validation file names: ", val_tfrecords_filenames)
 
 if model_name == "cnn":
-    windowLength = 256
-    overlap      = round(0.25 * windowLength) # overlap of 75%
-    ffTLength    = windowLength
+    win_length = 256
+    overlap      = round(0.25 * win_length) # overlap of 75%
+    n_fft    = win_length
     inputFs      = 48e3
     fs           = 16e3
-    numFeatures  = ffTLength//2 + 1
+    numFeatures  = n_fft//2 + 1
     numSegments  = 8
 
 elif model_name == "lstm":
-    windowLength = 512
-    overlap      = round(0.5 * windowLength) # overlap of 50%
-    ffTLength    = windowLength
+    win_length = 512
+    overlap      = round(0.5 * win_length) # overlap of 50%
+    n_fft    = win_length
     inputFs      = 48e3
     fs           = 16e3
-    numFeatures  = ffTLength//2 + 1
-    # numSegments = 189 # 3.024 sec in 512 window, 256 hop, sr = 16000 Hz
-    numSegments  = 63 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
+    numFeatures  = n_fft//2 + 1
+    numSegments  = 62 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
 
 else:
     NotImplementedError("Only implemented cnn and lstm")
 
-print("windowLength:",windowLength)
+print("win_length:",win_length)
 print("overlap:",overlap)
-print("ffTLength:",ffTLength)
+print("n_fft:",n_fft)
 print("inputFs:",inputFs)
 print("fs:",fs)
 print("numFeatures:",numFeatures)
 print("numSegments:",numSegments)
 
+# tf.compat.v1.enable_eager_execution()
+# tf.config.run_functions_eagerly(True) 
+
+def convert_mag_phase_tf(wav):
+    window_fn = tf.signal.hamming_window
+    wav_stft = tf.signal.stft(wav, frame_length=n_fft, frame_step=overlap, window_fn=window_fn)
+    
+    # inverse_stft = tf.signal.inverse_stft(
+    #   wav_stft, frame_length=n_fft, frame_step=overlap,
+    #   window_fn=tf.signal.inverse_stft_window_fn(
+    #      frame_step=overlap, forward_window_fn=window_fn))
+
+    wav_stft_mag_features = tf.abs(wav_stft)
+    wav_stft_phase = tf.experimental.numpy.angle(wav_stft)
+    return wav_stft_mag_features, wav_stft_phase    
+
+
 def tf_record_parser(record):
-
-    if domain == 'time':
-        keys_to_features = {
-            "noisy": tf.io.FixedLenFeature((), tf.string, default_value=""),
-            'clean': tf.io.FixedLenFeature([], tf.string),
-        }
-
-        features = tf.io.parse_single_example(record, keys_to_features)
-
-        noisy = tf.io.decode_raw(features['noisy'], tf.float32)
-        clean = tf.io.decode_raw(features['clean'], tf.float32)
-
-        # noisy_stft = tf.signal.stft(noisy, frame_length=windowLength, frame_step=overlap, fft_length=windowLength)
-        # clean_stft = tf.signal.stft(clean, frame_length=windowLength, frame_step=overlap, fft_length=windowLength)
-        
-        window = scipy.signal.hamming(windowLength, sym=False)
-
-        noisy_stft = librosa.stft(noisy, n_fft=windowLength, win_length=windowLength, hop_length=overlap,
-                    window=window, center=True)
-        clean_stft = librosa.stft(clean, n_fft=windowLength, win_length=windowLength, hop_length=overlap,
-                    window=window, center=True)
-
-        noise_stft_mag_features = np.abs(noisy_stft)
-        noise_stft_phase = np.angle(noisy_stft)
-        clean_stft_magnitude = np.abs(clean_stft)
-        clean_stft_phase = np.angle(clean_stft)
-
     if model_name == "cnn":
         keys_to_features = {
         "noise_stft_phase": tf.io.FixedLenFeature((), tf.string, default_value=""),
         'noise_stft_mag_features': tf.io.FixedLenFeature([], tf.string),
         "clean_stft_magnitude": tf.io.FixedLenFeature((), tf.string)
         }
-
         features = tf.io.parse_single_example(record, keys_to_features)
 
         noise_stft_mag_features = tf.io.decode_raw(features['noise_stft_mag_features'], tf.float32)
@@ -136,9 +124,21 @@ def tf_record_parser(record):
         clean_stft = tf.stack([clean_stft_magnitude, clean_stft_phase])
 
         return noise_stft_mag_features , clean_stft_magnitude
-
     elif model_name == 'lstm':
-        if domain != 'time':
+        if domain == 'time':    
+            keys_to_features = {
+            "noisy": tf.io.FixedLenFeature((), tf.string, default_value=""),
+            'clean': tf.io.FixedLenFeature([], tf.string),
+            }
+
+            features = tf.io.parse_single_example(record, keys_to_features)
+
+            noisy = tf.io.decode_raw(features['noisy'], tf.float32)
+            clean = tf.io.decode_raw(features['clean'], tf.float32)
+            
+            noise_stft_mag_features, noise_stft_phase = convert_mag_phase_tf(noisy)
+            clean_stft_magnitude, clean_stft_phase = convert_mag_phase_tf(clean)
+        else:
             keys_to_features = {
                 "noise_stft_phase": tf.io.FixedLenFeature((), tf.string, default_value=""),
                 'noise_stft_mag_features': tf.io.FixedLenFeature([], tf.string),
@@ -152,8 +152,6 @@ def tf_record_parser(record):
             noise_stft_phase = tf.io.decode_raw(features['noise_stft_phase'], tf.float32)
             clean_stft_phase = tf.io.decode_raw(features['clean_stft_phase'], tf.float32)
 
-        # print(clean_stft_phase.shape)
-
         # reshape input and annotation images, lstm
         noise_stft_mag_features = tf.reshape(noise_stft_mag_features, (1, numSegments, numFeatures), name="noise_stft_mag_features")
         clean_stft_magnitude = tf.reshape(clean_stft_magnitude, (1, numSegments, numFeatures), name="clean_stft_magnitude")
@@ -161,13 +159,17 @@ def tf_record_parser(record):
         noise_stft_phase = tf.reshape(noise_stft_phase, (1, numSegments, numFeatures), name="noise_stft_phase")
         clean_stft_phase = tf.reshape(clean_stft_phase, (1, numSegments, numFeatures), name="clean_stft_phase")    
 
-        noisy_stft = tf.stack([noise_stft_mag_features, noise_stft_phase])
-        clean_stft = tf.stack([clean_stft_magnitude, clean_stft_phase])
+        noisy_stft = tf.stack([noise_stft_mag_features, noise_stft_phase], name="noisy")
+        clean_stft = tf.stack([clean_stft_magnitude, clean_stft_phase], name="clean")
+
+        return noisy_stft, clean_stft
     else:
         raise ValueError("Model didn't implement...")
 
 train_dataset = tf.data.TFRecordDataset([train_tfrecords_filenames])
 train_dataset = train_dataset.map(tf_record_parser)
+# train_dataset = train_dataset.map(lambda file: tf.py_function(func=tf_record_parser, inp=file, Tout=tf.float32))
+
 train_dataset = train_dataset.shuffle(8192)
 train_dataset = train_dataset.repeat()
 train_dataset = train_dataset.batch(512)
@@ -256,7 +258,7 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_sav
 time_callback = TimeHistory(filepath=console_log_save_path)
 
 model.fit(train_dataset,
-         steps_per_epoch=1, # you might need to change this
+         steps_per_epoch=5, # you might need to change this
          validation_data=test_dataset,
          epochs=1,
          callbacks=[early_stopping_callback, tensorboard_callback, checkpoint_callback, time_callback]
