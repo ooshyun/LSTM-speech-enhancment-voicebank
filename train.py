@@ -77,6 +77,7 @@ elif model_name == "lstm":
 else:
     NotImplementedError("Only implemented cnn and lstm")
 
+print("-"*30)
 print("win_length:",win_length)
 print("overlap:",overlap)
 print("n_fft:",n_fft)
@@ -84,22 +85,30 @@ print("inputFs:",inputFs)
 print("fs:",fs)
 print("numFeatures:",numFeatures)
 print("numSegments:",numSegments)
+print("-"*30)
 
-# tf.compat.v1.enable_eager_execution()
-# tf.config.run_functions_eagerly(True) 
-
-def convert_mag_phase_tf(wav):
+def stft_tensorflow(wav):
     window_fn = tf.signal.hamming_window
     wav_stft = tf.signal.stft(wav, frame_length=n_fft, frame_step=overlap, window_fn=window_fn)
     
+    # if using inverse stft, 
     # inverse_stft = tf.signal.inverse_stft(
     #   wav_stft, frame_length=n_fft, frame_step=overlap,
     #   window_fn=tf.signal.inverse_stft_window_fn(
     #      frame_step=overlap, forward_window_fn=window_fn))
+    
+    print("DEBUG", wav_stft.shape, wav_stft.dtype)
 
+    # [TODO] Phase aware process
     wav_stft_mag_features = tf.abs(wav_stft)
     wav_stft_phase = tf.experimental.numpy.angle(wav_stft)
-    return wav_stft_mag_features, wav_stft_phase    
+    wav_stft_real = tf.math.real(wav_stft)
+    wav_stft_imag = tf.math.imag(wav_stft)
+
+    print("DEBUG", wav_stft_mag_features.shape, wav_stft_phase.shape, wav_stft_real.shape, wav_stft_imag.shape)
+    print("DEBUG", wav_stft_mag_features.dtype, wav_stft_phase.dtype, wav_stft_real.dtype, wav_stft_imag.dtype)
+
+    return wav_stft_mag_features, wav_stft_phase, wav_stft_real, wav_stft_imag
 
 
 def tf_record_parser(record):
@@ -136,8 +145,8 @@ def tf_record_parser(record):
             noisy = tf.io.decode_raw(features['noisy'], tf.float32)
             clean = tf.io.decode_raw(features['clean'], tf.float32)
             
-            noise_stft_mag_features, noise_stft_phase = convert_mag_phase_tf(noisy)
-            clean_stft_magnitude, clean_stft_phase = convert_mag_phase_tf(clean)
+            noise_stft_magnitude, noise_stft_phase, noise_stft_real, noise_stft_imag = stft_tensorflow(noisy)
+            clean_stft_magnitude, clean_stft_phase, clean_stft_real, clean_stft_imag = stft_tensorflow(clean)
         else:
             keys_to_features = {
                 "noise_stft_phase": tf.io.FixedLenFeature((), tf.string, default_value=""),
@@ -153,16 +162,16 @@ def tf_record_parser(record):
             clean_stft_phase = tf.io.decode_raw(features['clean_stft_phase'], tf.float32)
 
         # reshape input and annotation images, lstm
-        noise_stft_mag_features = tf.reshape(noise_stft_mag_features, (1, numSegments, numFeatures), name="noise_stft_mag_features")
-        clean_stft_magnitude = tf.reshape(clean_stft_magnitude, (1, numSegments, numFeatures), name="clean_stft_magnitude")
+        noise_stft_real = tf.reshape(noise_stft_real, (1, numSegments, numFeatures), name="noise_stft_real")
+        clean_stft_real = tf.reshape(clean_stft_real, (1, numSegments, numFeatures), name="clean_stft_real")
 
-        noise_stft_phase = tf.reshape(noise_stft_phase, (1, numSegments, numFeatures), name="noise_stft_phase")
-        clean_stft_phase = tf.reshape(clean_stft_phase, (1, numSegments, numFeatures), name="clean_stft_phase")    
+        noise_stft_imag = tf.reshape(noise_stft_imag, (1, numSegments, numFeatures), name="noise_stft_imag")
+        clean_stft_imag = tf.reshape(clean_stft_imag, (1, numSegments, numFeatures), name="clean_stft_imag")    
 
-        noisy_stft = tf.stack([noise_stft_mag_features, noise_stft_phase], name="noisy")
-        clean_stft = tf.stack([clean_stft_magnitude, clean_stft_phase], name="clean")
+        noisy_feature = tf.stack([noise_stft_real, noise_stft_imag], name="noisy")
+        clean_feature = tf.stack([clean_stft_real, clean_stft_imag], name="clean")
 
-        return noisy_stft, clean_stft
+        return noisy_feature, clean_feature
     else:
         raise ValueError("Model didn't implement...")
 

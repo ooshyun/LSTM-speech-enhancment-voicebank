@@ -67,13 +67,13 @@ def STOI(reference, estimation, sr=16000):
 def WB_PESQ(reference, estimation, sr=16000):
     reference_numpy = reference.numpy()
     estimation_numpy = estimation.numpy()
-    score = 0
-    for ref_batch, est_batch in zip(reference_numpy, estimation_numpy):
-        for ref_ch, est_ch in zip(ref_batch, est_batch):
-            score += pesq(sr, ref_ch, est_ch, "wb")
-    score /= reference.shape[0]*reference.shape[1] if reference.shape[0] is not None else reference.shape[1]
-    score = np.squeeze(score)
-    return score
+    pesq_batch = np.empty(shape=(reference_numpy.shape[0], reference_numpy.shape[1]))
+    for batch in range(reference_numpy.shape[0]):
+        for ch in range(reference_numpy.shape[1]):
+            pesq_batch[batch, ch] = pesq(sr, reference_numpy[batch, ch], estimation_numpy[batch, ch], mode='wb')    
+
+    pesq_batch = np.mean(pesq_batch)
+    return pesq_batch
 
 
 def NB_PESQ(reference, estimation, sr=16000):

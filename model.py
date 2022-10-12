@@ -293,6 +293,93 @@ def get_mel_filter(samplerate, n_fft, n_mels, fmin, fmax):
     mel_basis = mel(sr=samplerate, n_fft=n_fft, n_mels=n_mels, fmin=fmin, fmax=fmax)
     return tf.convert_to_tensor(mel_basis, dtype=tf.float32)
 
+# TODO add custom losses and metrics
+# import keras.losses 
+# import keras.metrics
+# keras.losses.mean_absolute_error # loss = mean(abs(y_true - y_pred), axis=-1)
+# keras.losses.mean_squared_error # loss = mean(square(y_true - y_pred), axis=-1)
+# keras.metrics.RootMeanSquaredError # metric = sqrt(mean(square(y_true - y_pred)))
+
+def meanAbsoluteError():
+  """
+    loss function based on energy, e = root(square(real^2 + imag^2))
+    loss = mean(abs(y_true - y_pred), axis=-1)
+  """
+  def _loss(y_true, y_pred):
+    reference_real = y_true[..., 0, :, :, :] # real/imag, ch, frame, freq
+    reference_imag = y_true[..., 1, :, :, :]
+    estimation_real = y_pred[..., 0, :, :, :]
+    estimation_imag = y_pred[..., 1, :, :, :]
+
+    reference_real = tf.cast(reference_real, dtype=tf.complex64)
+    reference_imag = tf.cast(reference_imag, dtype=tf.complex64)
+    estimation_real = tf.cast(estimation_real, dtype=tf.complex64)
+    estimation_imag = tf.cast(estimation_imag, dtype=tf.complex64)
+
+    reference_stft = reference_real + 1j*reference_imag
+    estimation_stft = estimation_real + 1j*estimation_imag
+    
+    reference_stft = tf.math.abs(reference_stft)
+    estimation_stft = tf.math.abs(estimation_stft)
+
+    return tf.keras.losses.mean_absolute_error(reference_stft, estimation_stft)
+  return _loss
+
+def meanSquareError():
+  """
+    loss function based on energy, e = root(square(real^2 + imag^2))
+    loss = mean(square(y_true - y_pred), axis=-1)
+  """
+  def _loss(y_true, y_pred):
+    reference_real = y_true[..., 0, :, :, :] # real/imag, ch, frame, freq
+    reference_imag = y_true[..., 1, :, :, :]
+    estimation_real = y_pred[..., 0, :, :, :]
+    estimation_imag = y_pred[..., 1, :, :, :]
+
+    reference_real = tf.cast(reference_real, dtype=tf.complex64)
+    reference_imag = tf.cast(reference_imag, dtype=tf.complex64)
+    estimation_real = tf.cast(estimation_real, dtype=tf.complex64)
+    estimation_imag = tf.cast(estimation_imag, dtype=tf.complex64)
+
+    reference_stft = reference_real + 1j*reference_imag
+    estimation_stft = estimation_real + 1j*estimation_imag
+    
+    reference_stft = tf.math.abs(reference_stft)
+    estimation_stft = tf.math.abs(estimation_stft)
+    return tf.keras.losses.mean_squared_error(reference_stft, estimation_stft)
+  return _loss
+
+
+def phaseSensitiveSpectralApproximationLoss():
+  """After backpropagation, estimation will be nan
+  """
+  def _loss(y_true, y_pred):
+    reference_real = y_true[..., 0, :, :, :] # real/imag, ch, frame, freq
+    reference_imag = y_true[..., 1, :, :, :]
+    estimation_real = y_pred[..., 0, :, :, :]
+    estimation_imag = y_pred[..., 1, :, :, :]
+
+    reference_real = tf.cast(reference_real, dtype=tf.complex64)
+    reference_imag = tf.cast(reference_imag, dtype=tf.complex64)
+    estimation_real = tf.cast(estimation_real, dtype=tf.complex64)
+    estimation_imag = tf.cast(estimation_imag, dtype=tf.complex64)
+
+    reference_stft = reference_real + 1j*reference_imag
+    estimation_stft = estimation_real + 1j*estimation_imag
+    
+    reference_stft_abs = tf.math.pow(tf.math.abs(reference_stft), 0.3)
+    estimation_stft_abs = tf.math.pow(tf.math.abs(estimation_stft), 0.3)
+
+    reference_stft_phase = tf.math.pow(reference_stft, 0.3)
+    estimation_stft_phase = tf.math.pow(estimation_stft, 0.3)
+
+    loss_phase = 0.113 * tf.math.pow(reference_stft_phase - estimation_stft_phase, 2)
+    loss_phase = tf.cast(loss_phase, tf.float32)
+    loss = tf.math.pow(reference_stft_abs - estimation_stft_abs, 2) + loss_phase
+    return loss
+  return _loss      
+  
+
 class SpeechMetric(tf.keras.metrics.Metric):
   """        
     [V] SI_SDR,     pass, after function check, value check
@@ -300,6 +387,8 @@ class SpeechMetric(tf.keras.metrics.Metric):
     [ ] STOI,       fail, np.matmul, (15, 257) @ (257, 74) -> OMP: Error #131: Thread identifier invalid, zsh: abort
     [ ] NB_PESQ     fail, ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
     [ ] SDR,        fail, MP: Error #131: Thread identifier invalid. zsh: abort      python train.py -> maybe batch related?
+
+    [TODO] Verification, compared with pytorch
   """
   def __init__(self, metric, name='sisdr', **kwargs):
     super(SpeechMetric, self).__init__(name=name, **kwargs)
@@ -308,21 +397,34 @@ class SpeechMetric(tf.keras.metrics.Metric):
     self.total = self.add_weight(name='total', initializer='zeros')
 
   def update_state(self, y_true, y_pred, sample_weight=None):
-    reference_stft = y_true
-    estimation_stft = y_pred
+    # phase and amp
+    # reference_amp = y_true[..., 0, :, :, :] # phase/amp, ch, frame, freq
+    # reference_phase = y_true[..., 1, :, :, :]
+    # estimation_amp = y_pred[..., 0, :, :, :]
+    # estimation_phase = y_pred[..., 1, :, :, :]
 
-    reference_amp = reference_stft[..., 0, :, :, :] # phase/amp, ch, frame, freq
-    reference_phase = reference_stft[..., 1, :, :, :]
-    estimation_amp = estimation_stft[..., 0, :, :, :]
-    estimation_phase = estimation_stft[..., 1, :, :, :]
+    # reference_amp = tf.cast(reference_amp, dtype=tf.complex64)
+    # reference_phase = tf.cast(reference_phase, dtype=tf.complex64)
+    # estimation_amp = tf.cast(estimation_amp, dtype=tf.complex64)
+    # estimation_phase = tf.cast(estimation_phase, dtype=tf.complex64)
 
-    reference_amp = tf.cast(reference_amp, dtype=tf.complex64)
-    reference_phase = tf.cast(reference_phase, dtype=tf.complex64)
-    estimation_amp = tf.cast(estimation_amp, dtype=tf.complex64)
-    estimation_phase = tf.cast(estimation_phase, dtype=tf.complex64)
+    # reference_stft_librosa = reference_amp*tf.math.exp(-1j*reference_phase)
+    # estimation_stft_librosa = estimation_amp*tf.math.exp(-1j*reference_phase)
 
-    reference_stft_librosa = reference_amp*tf.math.exp(-1j*reference_phase)
-    estimation_stft_librosa = estimation_amp*tf.math.exp(-1j*reference_phase)
+    # real and imag
+    # [TODO] Set const index of real/imag
+    reference_real = y_true[..., 0, :, :, :] # real/imag, ch, frame, freq
+    reference_imag = y_true[..., 1, :, :, :]
+    estimation_real = y_pred[..., 0, :, :, :]
+    estimation_imag = y_pred[..., 1, :, :, :]
+
+    reference_real = tf.cast(reference_real, dtype=tf.complex64)
+    reference_imag = tf.cast(reference_imag, dtype=tf.complex64)
+    estimation_real = tf.cast(estimation_real, dtype=tf.complex64)
+    estimation_imag = tf.cast(estimation_imag, dtype=tf.complex64)
+
+    reference_stft_librosa = reference_real + 1j*reference_imag
+    estimation_stft_librosa = estimation_real + 1j*estimation_imag
 
     window_fn = tf.signal.hamming_window
 
@@ -342,10 +444,10 @@ class SpeechMetric(tf.keras.metrics.Metric):
   def result(self):
     return self.score / self.total
 
-def build_model_lstm():
+def build_model_lstm(power=0.3):
   inputs = Input(shape=[2, 1, numSegments, numFeatures])  
   
-  x = inputs[:, 0, ...]
+  x = tf.math.sqrt(tf.math.pow(inputs[:, 0, ...], power)+tf.math.pow(inputs[:, 1, ...], power)) # abs
   
   mask = tf.squeeze(x, axis=1) # merge channel
   mask = MelSpec()(mask)
@@ -362,14 +464,20 @@ def build_model_lstm():
   mask = InverseMelSpec()(mask)
   mask = tf.expand_dims(mask, axis=1) # merge channel
   
-  x = Multiply()([inputs, mask])
+  x = Multiply()([inputs, mask]) # X_bar = M (Hadamard product) |Y|exp(angle(Y)), Y is noisy
   model = Model(inputs=inputs, outputs=x)
 
   optimizer = keras.optimizers.Adam(3e-4)
   #optimizer = RAdam(total_steps=10000, warmup_proportion=0.1, min_lr=3e-4)
 
-  model.compile(optimizer=optimizer, loss='mse', 
-              metrics=[keras.metrics.RootMeanSquaredError('rmse'), 
+  # model.compile(optimizer=optimizer, 
+  #             loss= 'mse',
+  #             metrics=[keras.metrics.RootMeanSquaredError('rmse'), 
+  #             ])
+
+  model.compile(optimizer=optimizer, 
+              loss= meanSquareError(),
+              metrics=[
               SpeechMetric(metric=SI_SDR, name='sisdr'),
               SpeechMetric(metric=WB_PESQ, name='wb_pesq'),
               ])

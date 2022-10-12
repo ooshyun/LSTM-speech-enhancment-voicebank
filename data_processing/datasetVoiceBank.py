@@ -97,13 +97,16 @@ class DatasetVoiceBank:
         clean_magnitude = np.abs(clean_spectrogram)
         # clean_magnitude = 2 * clean_magnitude / np.sum(scipy.signal.hamming(self.window_length, sym=False))
 
+        noisy_real, noisy_imag = noisy_spectrogram
+        clean_real, clean_imag = clean_spectrogram
+
         clean_magnitude = self._phase_aware_scaling(clean_magnitude, clean_phase, noisy_phase)
 
         scaler = StandardScaler(copy=False, with_mean=True, with_std=True)
         noisy_magnitude = scaler.fit_transform(noisy_magnitude)
         clean_magnitude = scaler.transform(clean_magnitude)
 
-        return noisy_magnitude, clean_magnitude, noisy_phase, clean_phase
+        return noisy_magnitude, clean_magnitude, noisy_phase, clean_phase, noisy_real, clean_real, noisy_imag, clean_imag
 
     def create_tf_record(self, *, prefix, subset_size, parallel=False):
         counter = 0
@@ -148,6 +151,10 @@ class DatasetVoiceBank:
                 clean_stft_magnitude = o[1]
                 noisy_stft_phase = o[2]
                 clean_stft_phase = o[3]
+                noisy_stft_real = o[4]
+                clean_stft_real = o[5]
+                noisy_stft_imag = o[6]
+                clean_stft_imag = o[7]
 
                 if model_name == "cnn":
                     # cnn-denoiser input, 8 segementation, 256 window, num frequency, num channel, num segment, 
@@ -169,19 +176,19 @@ class DatasetVoiceBank:
                     # lstm, 1 sec segementation, 512 window, num channel, num segment, num frequency
                     # noise_stft_mag_features = prepare_input_features(noisy_stft_magnitude, numSegments=8, numFeatures=256) # already segmentation in 1 sec
                 
-                    noisy_stft_magnitude = np.transpose(noisy_stft_magnitude, (1, 0))
-                    clean_stft_magnitude = np.transpose(clean_stft_magnitude, (1, 0))
-                    noisy_stft_phase = np.transpose(noisy_stft_phase, (1, 0))
-                    clean_stft_phase = np.transpose(clean_stft_phase, (1, 0))
+                    noisy_stft_real = np.transpose(noisy_stft_real, (1, 0))
+                    clean_stft_real = np.transpose(clean_stft_real, (1, 0))
+                    noisy_stft_imag = np.transpose(noisy_stft_imag, (1, 0))
+                    clean_stft_imag = np.transpose(clean_stft_imag, (1, 0))
 
-                    noisy_stft_magnitude = np.expand_dims(noisy_stft_magnitude, axis=0)
-                    clean_stft_magnitude = np.expand_dims(clean_stft_magnitude, axis=0)
-                    noisy_stft_phase = np.expand_dims(noisy_stft_phase, axis=0)
-                    clean_stft_phase = np.expand_dims(clean_stft_phase, axis=0)
+                    noisy_stft_real = np.expand_dims(noisy_stft_real, axis=0)
+                    clean_stft_real = np.expand_dims(clean_stft_real, axis=0)
+                    noisy_stft_imag = np.expand_dims(noisy_stft_imag, axis=0)
+                    clean_stft_imag = np.expand_dims(clean_stft_imag, axis=0)
 
-                    print("[DEBUG]: ", noisy_stft_magnitude.shape, noisy_stft_phase.shape, clean_stft_magnitude.shape, clean_stft_phase.shape)
+                    print("[DEBUG]: ", noisy_stft_real.shape, noisy_stft_imag.shape, clean_stft_real.shape, clean_stft_imag.shape)
 
-                    for x_, y_, p_, p_c in zip(noisy_stft_magnitude, clean_stft_magnitude, noisy_stft_phase, clean_stft_phase):
+                    for x_, y_, p_, p_c in zip(noisy_stft_real, clean_stft_real, noisy_stft_imag, clean_stft_imag):
                         example = get_tf_feature_custom(x_, y_, p_, p_c)
                         writer.write(example.SerializeToString())    
                 else:
