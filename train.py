@@ -36,7 +36,7 @@ np.random.seed(999)
 # model_name = 'cnn'
 model_name = 'lstm'
 
-# domain = 'freq'
+# domain = 'freq' # Not implemented
 domain = 'time'
 
 if model_name == 'lstm':
