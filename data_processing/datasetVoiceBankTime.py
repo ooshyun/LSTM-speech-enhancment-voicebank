@@ -90,7 +90,7 @@ class DatasetVoiceBankTime:
             folder.mkdir()
 
         for i in range(0, len(self.clean_filenames), subset_size):
-            subset_size = 10 # Test
+            # subset_size = 10 # Test
 
             tfrecord_filename = str(folder / f"{prefix}_{str(counter)}.tfrecords")
 
@@ -126,7 +126,7 @@ class DatasetVoiceBankTime:
                 noisy = o[0]
                 clean = o[1]
 
-                print("[DEBUG]: ", noisy.shape, clean.shape)
+                # print("[DEBUG]: ", noisy.shape, clean.shape)
 
                 for n, c in zip(noisy, clean):
                     example = get_tf_feature_time(n, c)
@@ -138,4 +138,4 @@ class DatasetVoiceBankTime:
             counter += 1
             writer.close()
             
-            break # Test
+            # break # Test

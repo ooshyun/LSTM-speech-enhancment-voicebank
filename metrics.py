@@ -1,5 +1,5 @@
 import numpy as np
-from pesq import pesq
+from pesq import pesq, cypesq
 from pypesq import pesq as nb_pesq
 from pystoi import stoi
 from museval.metrics import bss_eval
@@ -67,12 +67,21 @@ def STOI(reference, estimation, sr=16000):
 def WB_PESQ(reference, estimation, sr=16000):
     reference_numpy = reference.numpy()
     estimation_numpy = estimation.numpy()
-    pesq_batch = np.empty(shape=(reference_numpy.shape[0], reference_numpy.shape[1]))
-    for batch in range(reference_numpy.shape[0]):
-        for ch in range(reference_numpy.shape[1]):
-            pesq_batch[batch, ch] = pesq(sr, reference_numpy[batch, ch], estimation_numpy[batch, ch], mode='wb')    
+    num_batch, num_channel = reference_numpy.shape[0], reference_numpy.shape[1]
+    pesq_batch = np.empty(shape=(num_batch, num_channel))
 
-    pesq_batch = np.mean(pesq_batch)
+    count_error = 0
+    for batch in range(num_batch):
+        for ch in range(num_channel):
+            try:
+                pesq_batch[batch, ch] = pesq(sr, reference_numpy[batch, ch], estimation_numpy[batch, ch], mode='wb')    
+            except cypesq.NoUtterancesError:
+                print("[DEBUG] cypesq.NoUtterancesError: b'No utterances detected'")
+                count_error += 1
+    if batch*num_channel-count_error > 0:
+        pesq_batch = np.sum(pesq_batch)/(num_batch*num_channel-count_error)
+    else: 
+        pesq_batch = 0
     return pesq_batch
 
 

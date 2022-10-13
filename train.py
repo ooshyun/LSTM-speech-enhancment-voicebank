@@ -171,7 +171,7 @@ def tf_record_parser(record):
         noisy_feature = tf.stack([noise_stft_real, noise_stft_imag], name="noisy")
         clean_feature = tf.stack([clean_stft_real, clean_stft_imag], name="clean")
 
-        return noisy_feature, clean_feature
+        return noisy_feature, clean_feature # multiinput, multioutput
     else:
         raise ValueError("Model didn't implement...")
 

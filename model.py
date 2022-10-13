@@ -344,7 +344,8 @@ def meanSquareError():
     reference_stft = reference_real + 1j*reference_imag
     estimation_stft = estimation_real + 1j*estimation_imag
     
-    reference_stft = tf.math.abs(reference_stft)
+    # reference_stft = tf.math.abs(tf.math.sqrt(tf.math.pow(reference_real, 2) - tf.math.pow(reference_imag, 2)))
+    # estimation_stft = tf.math.abs(tf.math.sqrt(tf.math.pow(estimation_real, 2) - tf.math.pow(estimation_imag, 2)))
     estimation_stft = tf.math.abs(estimation_stft)
     return tf.keras.losses.mean_squared_error(reference_stft, estimation_stft)
   return _loss
@@ -446,9 +447,18 @@ class SpeechMetric(tf.keras.metrics.Metric):
 
 def build_model_lstm(power=0.3):
   inputs = Input(shape=[2, 1, numSegments, numFeatures])  
-  
-  x = tf.math.sqrt(tf.math.pow(inputs[:, 0, ...], power)+tf.math.pow(inputs[:, 1, ...], power)) # abs
-  
+
+  # x = tf.math.sqrt(tf.math.pow(inputs[..., 0, :, :, :], power)-tf.math.pow(inputs[..., 1, :, :, :], power)) # abs
+  # x = inputs[..., 0, :, :, :]
+
+  print("DEBUG", inputs[..., 0, :, :, :])
+   
+  inputs_real = tf.cast(inputs[..., 0, :, :, :], dtype=tf.complex64) # input이 아니라 layer(function) 을 쪼개는 것 처럼 보인다.
+  inputs_imag = tf.cast(inputs[..., 1, :, :, :], dtype=tf.complex64) #
+
+  inputs_clx = inputs_real + 1j*inputs_imag
+  x = tf.math.abs(inputs_clx)
+ 
   mask = tf.squeeze(x, axis=1) # merge channel
   mask = MelSpec()(mask)
   mask = LSTM(256, activation='tanh', return_sequences=True)(mask)
@@ -462,16 +472,18 @@ def build_model_lstm(power=0.3):
         kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask) # [TODO] check initialization method
   
   mask = InverseMelSpec()(mask)
-  mask = tf.expand_dims(mask, axis=1) # merge channel
-  
+  mask = tf.expand_dims(mask, axis=1) # expand channel
+  mask = tf.expand_dims(mask, axis=1) # expand real and imag
+
   x = Multiply()([inputs, mask]) # X_bar = M (Hadamard product) |Y|exp(angle(Y)), Y is noisy
   model = Model(inputs=inputs, outputs=x)
 
+  # optimizer = keras.optimizers.SGD(10e-4)
   optimizer = keras.optimizers.Adam(3e-4)
   #optimizer = RAdam(total_steps=10000, warmup_proportion=0.1, min_lr=3e-4)
 
   # model.compile(optimizer=optimizer, 
-  #             loss= 'mse',
+  #             loss= meanSquareError(), # 'mse'
   #             metrics=[keras.metrics.RootMeanSquaredError('rmse'), 
   #             ])
 
@@ -479,7 +491,7 @@ def build_model_lstm(power=0.3):
               loss= meanSquareError(),
               metrics=[
               SpeechMetric(metric=SI_SDR, name='sisdr'),
-              SpeechMetric(metric=WB_PESQ, name='wb_pesq'),
+              # SpeechMetric(metric=WB_PESQ, name='wb_pesq'),
               ])
   return model
 
