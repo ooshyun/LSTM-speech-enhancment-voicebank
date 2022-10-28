@@ -4,6 +4,8 @@ from pypesq import pesq as nb_pesq
 from pystoi import stoi
 from museval.metrics import bss_eval
 
+import logging
+
 def SDR(reference, estimation, sr=16000):
     """Signal to Distortion Ratio (SDR) from museval
 
@@ -74,9 +76,9 @@ def WB_PESQ(reference, estimation, sr=16000):
     for batch in range(num_batch):
         for ch in range(num_channel):
             try:
-                pesq_batch[batch, ch] = pesq(sr, reference_numpy[batch, ch], estimation_numpy[batch, ch], mode='wb')    
+                pesq_batch[batch, ch] = pesq(sr, reference_numpy[batch, ch], estimation_numpy[batch, ch], mode='wb')
             except cypesq.NoUtterancesError:
-                print("[DEBUG] cypesq.NoUtterancesError: b'No utterances detected'")
+                logging.info("cypesq.NoUtterancesError: b'No utterances detected'")
                 count_error += 1
     if batch*num_channel-count_error > 0:
         pesq_batch = np.sum(pesq_batch)/(num_batch*num_channel-count_error)

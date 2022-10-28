@@ -30,10 +30,12 @@ clean_train_filenames, noisy_train_filenames, clean_val_filenames, noisy_val_fil
 # # cnn-denoiser
 # windowLength = 256
 
-# config = {'windowLength': windowLength,
-#           'overlap': round(0.25 * windowLength),
-#           'fs': 16000,
-#           'audio_max_duration': 0.8}
+# config = {'top_db': 100,
+        #   'windowLength': windowLength,
+        #   'overlap': round(0.5 * windowLength),
+        #   'fs': 16000,
+        #   'audio_max_duration': 1.008}
+
 
 # val_dataset = DatasetVoiceBank(clean_val_filenames, noisy_val_filenames, **config)
 # val_dataset.create_tf_record(prefix='val', subset_size=2000)
@@ -43,21 +45,23 @@ clean_train_filenames, noisy_train_filenames, clean_val_filenames, noisy_val_fil
 
 # lstm
 windowLength = 512
-config = {'windowLength': windowLength,
-          'overlap': round(0.5 * windowLength),
-          'fs': 16000,
-          'audio_max_duration': 1.008}
+for top_db in [20, 40, 80]
+    config = {'top_db': top_db,
+            'windowLength': windowLength,
+            'overlap': round(0.5 * windowLength),
+            'fs': 16000,
+            'audio_max_duration': 1.008}
 
-# val_dataset = DatasetVoiceBank(clean_val_filenames, noisy_val_filenames, **config)
-# val_dataset.create_tf_record(prefix='val', subset_size=2000)
+    val_dataset = DatasetVoiceBank(clean_val_filenames, noisy_val_filenames, **config)
+    val_dataset.create_tf_record(prefix='val', subset_size=2000)
 
-# train_dataset = DatasetVoiceBank(clean_train_filenames, noisy_train_filenames, **config)
-# train_dataset.create_tf_record(prefix='train', subset_size=4000)
+    train_dataset = DatasetVoiceBank(clean_train_filenames, noisy_train_filenames, **config)
+    train_dataset.create_tf_record(prefix='train', subset_size=4000)
 
 
 # lstm, time domain
-val_dataset = DatasetVoiceBankTime(clean_val_filenames, noisy_val_filenames, **config)
-val_dataset.create_tf_record(prefix='val', subset_size=2000)
+# val_dataset = DatasetVoiceBankTime(clean_val_filenames, noisy_val_filenames, **config)
+# val_dataset.create_tf_record(prefix='val', subset_size=2000)
 
-train_dataset = DatasetVoiceBankTime(clean_train_filenames, noisy_train_filenames, **config)
-train_dataset.create_tf_record(prefix='train', subset_size=4000)
+# train_dataset = DatasetVoiceBankTime(clean_train_filenames, noisy_train_filenames, **config)
+# train_dataset.create_tf_record(prefix='train', subset_size=4000)

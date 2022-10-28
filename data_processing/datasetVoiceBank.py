@@ -17,26 +17,53 @@ np.random.seed(999)
 tf.random.set_seed(999)
 
 model_name = 'lstm'
+depth_16bit = 96
+DEBUG_SILENCE = False
 
 class DatasetVoiceBank:
     def __init__(self, clean_filenames, noisy_filenames, **config):
         self.clean_filenames = clean_filenames
         self.noisy_filenames = noisy_filenames
+        self.top_db = config['top_db']
+        self.normalized = config['normalize']
         self.sample_rate = config['fs']
         self.overlap = config['overlap']
         self.window_length = config['windowLength']
         self.audio_max_duration = config['audio_max_duration']
-
+        self.count_image = 0
     def _sample_noisy_filename(self):
         return np.random.choice(self.noisy_filenames)
 
-    def _remove_silent_frames(self, audio):
+    def _remove_silent_frames(self, audio, index_indices=None, name=None):
         trimed_audio = []
-        indices = librosa.effects.split(audio, hop_length=self.overlap, top_db=20)
 
+        if index_indices is None: 
+            indices = librosa.effects.split(audio, hop_length=self.overlap, top_db=self.top_db) # average mse in each frame < -20 dB
+        else:
+            indices = index_indices
+
+        audio_remove_slience = np.zeros_like(audio)
+        for index in indices:
+            audio_remove_slience[index[0]:index[1]] = audio[index[0]: index[1]]
+        
         for index in indices:
             trimed_audio.extend(audio[index[0]: index[1]])
-        return np.array(trimed_audio)
+        
+        if DEBUG_SILENCE:
+            from pathlib import Path
+            if not Path(f"./data/preprocess/{self.top_db}_top_db").is_dir():
+                os.mkdir(f"./data/preprocess/{self.top_db}_top_db")
+
+            import matplotlib.pyplot as plt
+            fig, axes = plt.subplots(nrows=3, ncols=1)
+            axes[0].plot(audio)
+            axes[1].plot(audio_remove_slience)
+            axes[2].plot(np.array(trimed_audio))
+        
+        fig.savefig(f"./data/preprocess/{self.top_db}_top_db/comparision_{name.split('/')[-1].split('.')[0]}.jpg")
+        plt.close()
+
+        return indices, np.array(trimed_audio)
 
     def _phase_aware_scaling(self, clean_spectral_magnitude, clean_phase, noise_phase):
         assert clean_phase.shape == noise_phase.shape, "Shapes must match."
@@ -67,9 +94,10 @@ class DatasetVoiceBank:
         noisy_audio, sr = read_audio(noisy_filename, self.sample_rate)
 
         # remove silent frame from clean audio
-        # clean_audio = self._remove_silent_frames(clean_audio)
-        # noisy_audio = self._remove_silent_frames(noisy_audio)
-
+        if self.top_db <= depth_16bit:
+            noisy_index, noisy_audio = self._remove_silent_frames(noisy_audio, None, noisy_filename)
+            noisy_index, clean_audio = self._remove_silent_frames(clean_audio, noisy_index, clean_filename)
+            
         # sample random fixed-sized snippets of audio
         clean_audio, noisy_audio= self._audio_random_crop(clean_audio, noisy_audio, duration=self.audio_max_duration)
 
@@ -101,7 +129,7 @@ class DatasetVoiceBank:
         noisy_real, noisy_imag = np.real(noisy_spectrogram), np.imag(noisy_spectrogram)
         clean_real, clean_imag = np.real(clean_spectrogram), np.imag(clean_spectrogram)
 
-        clean_magnitude = self._phase_aware_scaling(clean_magnitude, clean_phase, noisy_phase)
+        clean_magnitude = self._phase_aware_scaling(clean_magnitude, clean_phase, noisy_phase) # is it need?
 
         scaler = StandardScaler(copy=False, with_mean=True, with_std=True)
         noisy_magnitude = scaler.fit_transform(noisy_magnitude)
@@ -113,13 +141,13 @@ class DatasetVoiceBank:
         counter = 0
         # p = multiprocessing.Pool(multiprocessing.cpu_count())
             
-        folder = Path(f"./records_{model_name}")
+        folder = Path(f"./records_{model_name}_{self.top_db}")
         
         if not folder.is_dir():
             folder.mkdir()
 
         for i in range(0, len(self.clean_filenames), subset_size):
-            subset_size = 10 # Test
+            # subset_size = 10 # Test
 
             tfrecord_filename = str(folder / f"{prefix}_{str(counter)}.tfrecords")
 
@@ -200,5 +228,5 @@ class DatasetVoiceBank:
             counter += 1
             writer.close()
 
-            break
+            # break
 

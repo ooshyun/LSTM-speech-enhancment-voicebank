@@ -300,86 +300,74 @@ def get_mel_filter(samplerate, n_fft, n_mels, fmin, fmax):
 # keras.losses.mean_squared_error # loss = mean(square(y_true - y_pred), axis=-1)
 # keras.metrics.RootMeanSquaredError # metric = sqrt(mean(square(y_true - y_pred)))
 
-def meanAbsoluteError():
-  """
-    loss function based on energy, e = root(square(real^2 + imag^2))
-    loss = mean(abs(y_true - y_pred), axis=-1)
-  """
-  def _loss(y_true, y_pred):
-    reference_real = y_true[..., 0, :, :, :] # real/imag, ch, frame, freq
-    reference_imag = y_true[..., 1, :, :, :]
-    estimation_real = y_pred[..., 0, :, :, :]
-    estimation_imag = y_pred[..., 1, :, :, :]
-
-    reference_real = tf.cast(reference_real, dtype=tf.complex64)
-    reference_imag = tf.cast(reference_imag, dtype=tf.complex64)
-    estimation_real = tf.cast(estimation_real, dtype=tf.complex64)
-    estimation_imag = tf.cast(estimation_imag, dtype=tf.complex64)
-
-    reference_stft = reference_real + 1j*reference_imag
-    estimation_stft = estimation_real + 1j*estimation_imag
-    
-    reference_stft = tf.math.abs(reference_stft)
-    estimation_stft = tf.math.abs(estimation_stft)
-
-    return tf.keras.losses.mean_absolute_error(reference_stft, estimation_stft)
-  return _loss
-
-def meanSquareError():
-  """
-    loss function based on energy, e = root(square(real^2 + imag^2))
-    loss = mean(square(y_true - y_pred), axis=-1)
-  """
-  def _loss(y_true, y_pred):
-    reference_real = y_true[..., 0, :, :, :] # real/imag, ch, frame, freq
-    reference_imag = y_true[..., 1, :, :, :]
-    estimation_real = y_pred[..., 0, :, :, :]
-    estimation_imag = y_pred[..., 1, :, :, :]
-
-    reference_real = tf.cast(reference_real, dtype=tf.complex64)
-    reference_imag = tf.cast(reference_imag, dtype=tf.complex64)
-    estimation_real = tf.cast(estimation_real, dtype=tf.complex64)
-    estimation_imag = tf.cast(estimation_imag, dtype=tf.complex64)
-
-    reference_stft = reference_real + 1j*reference_imag
-    estimation_stft = estimation_real + 1j*estimation_imag
-    
-    # reference_stft = tf.math.abs(tf.math.sqrt(tf.math.pow(reference_real, 2) - tf.math.pow(reference_imag, 2)))
-    # estimation_stft = tf.math.abs(tf.math.sqrt(tf.math.pow(estimation_real, 2) - tf.math.pow(estimation_imag, 2)))
-    estimation_stft = tf.math.abs(estimation_stft)
-    return tf.keras.losses.mean_squared_error(reference_stft, estimation_stft)
-  return _loss
-
-
-def phaseSensitiveSpectralApproximationLoss():
-  """After backpropagation, estimation will be nan
-  """
-  def _loss(y_true, y_pred):
-    reference_real = y_true[..., 0, :, :, :] # real/imag, ch, frame, freq
-    reference_imag = y_true[..., 1, :, :, :]
-    estimation_real = y_pred[..., 0, :, :, :]
-    estimation_imag = y_pred[..., 1, :, :, :]
-
-    reference_real = tf.cast(reference_real, dtype=tf.complex64)
-    reference_imag = tf.cast(reference_imag, dtype=tf.complex64)
-    estimation_real = tf.cast(estimation_real, dtype=tf.complex64)
-    estimation_imag = tf.cast(estimation_imag, dtype=tf.complex64)
-
-    reference_stft = reference_real + 1j*reference_imag
-    estimation_stft = estimation_real + 1j*estimation_imag
-    
-    reference_stft_abs = tf.math.pow(tf.math.abs(reference_stft), 0.3)
-    estimation_stft_abs = tf.math.pow(tf.math.abs(estimation_stft), 0.3)
-
-    reference_stft_phase = tf.math.pow(reference_stft, 0.3)
-    estimation_stft_phase = tf.math.pow(estimation_stft, 0.3)
-
-    loss_phase = 0.113 * tf.math.pow(reference_stft_phase - estimation_stft_phase, 2)
-    loss_phase = tf.cast(loss_phase, tf.float32)
-    loss = tf.math.pow(reference_stft_abs - estimation_stft_abs, 2) + loss_phase
-    return loss
-  return _loss      
+def convert_stft_from_amplitude_phase(y):
+  y_amplitude = y[..., 0, :, :, :] # amp/phase, ch, frame, freq
+  y_phase = y[..., 1, :, :, :]        
+  y_amplitude = tf.cast(y_amplitude, dtype=tf.complex64)
+  y_phase = tf.math.multiply(tf.cast(1j, dtype=tf.complex64), tf.cast(y_phase, dtype=tf.complex64))
   
+  return tf.math.multiply(y_amplitude, tf.math.exp(y_phase)) 
+
+
+def convert_stft_from_real_imag(y):
+  y_real = y[..., 0, :, :, :] # amp/phase, ch, frame, freq
+  y_imag = y[..., 1, :, :, :]        
+  y_real = tf.cast(y_real, dtype=tf.complex64)
+  y_imag = tf.math.multiply(tf.cast(1j, dtype=tf.complex64), tf.cast(y_imag, dtype=tf.complex64))
+  
+  return tf.add(y_real, y_imag)
+
+
+def mean_square_error_amplitdue_phase(y_true, y_pred):
+  reference_stft = convert_stft_from_amplitude_phase(y_true)
+  estimation_stft = convert_stft_from_amplitude_phase(y_pred)
+
+  return tf.keras.losses.mean_squared_error(reference_stft, estimation_stft)
+
+def mean_absolute_error_amplitdue_phase(y_true, y_pred):
+  reference_stft = convert_stft_from_amplitude_phase(y_true)
+  estimation_stft = convert_stft_from_amplitude_phase(y_pred)
+
+  return tf.keras.losses.mean_absolute_error(reference_stft, estimation_stft)
+
+
+def phase_sensitive_spectral_approximation_loss(y_true, y_pred):
+  """After backpropagation, estimation will be nan
+    D_psa(mask) = (mask|y| - |s|cos(theta))^2
+    theta = theta_s - theta_y
+  """
+  reference_amplitude = y_true[..., 0, :, :, :]
+  reference_phase = y_true[..., 1, :, :, :]        
+  estimation_amplitude = y_pred[..., 0, :, :, :]
+  estimation_phase = y_pred[..., 1, :, :, :]        
+
+  estimation = tf.math.multiply(estimation_amplitude, tf.math.cos(estimation_phase-reference_phase))
+
+  return tf.keras.losses.mean_squared_error(reference_amplitude, estimation)
+
+
+def phase_sensitive_spectral_approximation_loss_bose(y_true, y_pred):
+  """[TODO] After backpropagation, evaluation is not nan, but when training it goes to nan
+    Loss = norm_2(|X|^0.3-[X_bar|^0.3) + 0.113*norm_2(X^0.3-X_bar^0.3)
+
+    Q. How complex number can be power 0.3?
+      x + yi = r*e^{jtheta}
+      (x + yi)*0.3 = r^0.3*e^{j*theta*0.3}
+
+
+      X^0.3-X_bar^0.3 r^{0.3}*e^{j*theta*0.3} - r_bar^{0.3}*e^{j*theta_bar*0.3}
+  """
+  reference_amplitude = tf.cast(y_true[..., 0, :, :, :], dtype=tf.complex64)
+  reference_phase = tf.cast(y_true[..., 1, :, :, :], dtype=tf.complex64)
+  estimation_amplitude = tf.cast(y_pred[..., 0, :, :, :], dtype=tf.complex64)
+  estimation_phase = tf.cast(y_pred[..., 1, :, :, :], dtype=tf.complex64)
+
+  loss_absolute = tf.math.pow(tf.math.pow(reference_amplitude, 0.3) - tf.math.pow(estimation_amplitude, 0.3), 2)
+  loss_phase = 0.113*tf.math.pow(tf.math.pow(reference_amplitude, 0.3)*tf.math.exp(1j*reference_phase*0.3) - tf.math.pow(estimation_amplitude, 0.3)*tf.math.exp(1j*estimation_phase*0.3) ,2)
+  loss = loss_absolute + loss_phase
+
+  return loss
+
 
 class SpeechMetric(tf.keras.metrics.Metric):
   """        
@@ -394,38 +382,16 @@ class SpeechMetric(tf.keras.metrics.Metric):
   def __init__(self, metric, name='sisdr', **kwargs):
     super(SpeechMetric, self).__init__(name=name, **kwargs)
     self.metric = metric 
+    self.metric_name = name
     self.score = self.add_weight(name=f"{name}_value", initializer='zeros')
     self.total = self.add_weight(name='total', initializer='zeros')
 
   def update_state(self, y_true, y_pred, sample_weight=None):
-    # phase and amp
-    # reference_amp = y_true[..., 0, :, :, :] # phase/amp, ch, frame, freq
-    # reference_phase = y_true[..., 1, :, :, :]
-    # estimation_amp = y_pred[..., 0, :, :, :]
-    # estimation_phase = y_pred[..., 1, :, :, :]
+    reference_stft_librosa = convert_stft_from_amplitude_phase(y_true)
+    estimation_stft_librosa = convert_stft_from_amplitude_phase(y_pred)
 
-    # reference_amp = tf.cast(reference_amp, dtype=tf.complex64)
-    # reference_phase = tf.cast(reference_phase, dtype=tf.complex64)
-    # estimation_amp = tf.cast(estimation_amp, dtype=tf.complex64)
-    # estimation_phase = tf.cast(estimation_phase, dtype=tf.complex64)
-
-    # reference_stft_librosa = reference_amp*tf.math.exp(-1j*reference_phase)
-    # estimation_stft_librosa = estimation_amp*tf.math.exp(-1j*reference_phase)
-
-    # real and imag
-    # [TODO] Set const index of real/imag
-    reference_real = y_true[..., 0, :, :, :] # real/imag, ch, frame, freq
-    reference_imag = y_true[..., 1, :, :, :]
-    estimation_real = y_pred[..., 0, :, :, :]
-    estimation_imag = y_pred[..., 1, :, :, :]
-
-    reference_real = tf.cast(reference_real, dtype=tf.complex64)
-    reference_imag = tf.cast(reference_imag, dtype=tf.complex64)
-    estimation_real = tf.cast(estimation_real, dtype=tf.complex64)
-    estimation_imag = tf.cast(estimation_imag, dtype=tf.complex64)
-
-    reference_stft_librosa = reference_real + 1j*reference_imag
-    estimation_stft_librosa = estimation_real + 1j*estimation_imag
+    reference_stft_librosa *= 2*(reference_stft_librosa.shape[-1]-1)
+    estimation_stft_librosa *= 2*(reference_stft_librosa.shape[-1]-1)
 
     window_fn = tf.signal.hamming_window
 
@@ -439,27 +405,29 @@ class SpeechMetric(tf.keras.metrics.Metric):
       window_fn=tf.signal.inverse_stft_window_fn(
          frame_step=overlap, forward_window_fn=window_fn))
 
-    self.score.assign_add(tf.py_function(func=self.metric, inp=[reference, estimation], Tout=tf.float32,  name='sisdr-metric')) # tf 2.x
+    self.score.assign_add(tf.py_function(func=self.metric, inp=[reference, estimation], Tout=tf.float32,  name=f"{self.metric_name}_metric")) # tf 2.x
     self.total.assign_add(1)
     
   def result(self):
     return self.score / self.total
 
 def build_model_lstm(power=0.3):
-  inputs = Input(shape=[2, 1, numSegments, numFeatures])  
+  """
+    Kernal Initialization
+    Bias   Initizlization
+  """
+    
+  # inputs_real = Input(shape=[1, numSegments, numFeatures], name='input_real')  
+  # inputs_imag = Input(shape=[1, numSegments, numFeatures], name='input_imag')  
 
-  # x = tf.math.sqrt(tf.math.pow(inputs[..., 0, :, :, :], power)-tf.math.pow(inputs[..., 1, :, :, :], power)) # abs
-  # x = inputs[..., 0, :, :, :]
+  # [TODO] Normalize
+  inputs = Input(shape=[2, 1, numSegments, numFeatures], name='input')
 
-  print("DEBUG", inputs[..., 0, :, :, :])
-   
-  inputs_real = tf.cast(inputs[..., 0, :, :, :], dtype=tf.complex64) # input이 아니라 layer(function) 을 쪼개는 것 처럼 보인다.
-  inputs_imag = tf.cast(inputs[..., 1, :, :, :], dtype=tf.complex64) #
-
-  inputs_clx = inputs_real + 1j*inputs_imag
-  x = tf.math.abs(inputs_clx)
+  # inputs_amp = tf.math.sqrt(tf.math.pow(tf.math.abs(inputs[...,0, :, :, :]), 2)+tf.math.pow(tf.math.abs(inputs[...,1, :, :, :]), 2))
+  inputs_amp = inputs[..., 0, :, :, :]
+  inputs_phase = inputs[..., 1, :, :, :]
  
-  mask = tf.squeeze(x, axis=1) # merge channel
+  mask = tf.squeeze(inputs_amp, axis=1) # merge channel
   mask = MelSpec()(mask)
   mask = LSTM(256, activation='tanh', return_sequences=True)(mask)
   mask = LSTM(256, activation='tanh', return_sequences=True)(mask)
@@ -473,25 +441,37 @@ def build_model_lstm(power=0.3):
   
   mask = InverseMelSpec()(mask)
   mask = tf.expand_dims(mask, axis=1) # expand channel
-  mask = tf.expand_dims(mask, axis=1) # expand real and imag
+  
+  # mask = tf.expand_dims(mask, axis=1) # expand real/imag
+  # inputs_clx = tf.stack([inputs_real, inputs_imag], axis=-4) # ..., real/imag, ch, num_frame, freq_bin
+  # outputs_clx = Multiply()([inputs_clx, mask]) # X_bar = M (Hadamard product) |Y|exp(angle(Y)), Y is noisy
 
-  x = Multiply()([inputs, mask]) # X_bar = M (Hadamard product) |Y|exp(angle(Y)), Y is noisy
-  model = Model(inputs=inputs, outputs=x)
+  # outputs_real = Multiply()([inputs_real, mask]) # X_bar = M (Hadamard product) |Y|exp(angle(Y)), Y is noisy
+  # outputs_imag = Multiply()([inputs_imag, mask]) # X_bar = M (Hadamard product) |Y|exp(angle(Y)), Y is noisy
 
-  # optimizer = keras.optimizers.SGD(10e-4)
+  outputs_amp = Multiply()([inputs_amp, mask]) # X_bar = M (Hadamard product) |Y|exp(angle(Y)), Y is noisy
+  outputs = tf.stack([outputs_amp, inputs_phase], axis=-4) # ..., real/imag, ch, num_frame, freq_bin
+
+  # [TODO] How to print a tensor while training?
+
+  model = Model(inputs=inputs, outputs=outputs)
+
+  # optimizer = keras.optimizers.SGD(1e-3)
   optimizer = keras.optimizers.Adam(3e-4)
-  #optimizer = RAdam(total_steps=10000, warmup_proportion=0.1, min_lr=3e-4)
 
   # model.compile(optimizer=optimizer, 
   #             loss= meanSquareError(), # 'mse'
   #             metrics=[keras.metrics.RootMeanSquaredError('rmse'), 
   #             ])
 
+  tf.print("[DEBUG] ", outputs.shape)
+
   model.compile(optimizer=optimizer, 
-              loss= meanSquareError(),
+              loss= mean_absolute_error_amplitdue_phase,
               metrics=[
+              # keras.metrics.RootMeanSquaredError('rmse')
               SpeechMetric(metric=SI_SDR, name='sisdr'),
-              # SpeechMetric(metric=WB_PESQ, name='wb_pesq'),
+              # SpeechMetric(metric=WB_PESQ, name='wb_pesq'), # no utter weight overload -> [TODO] remove a slience in data using dB scale/ normalize fft
               ])
   return model
 

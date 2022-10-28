@@ -126,7 +126,7 @@ def tf_record_parser(record):
 
         # reshape input and annotation images, cnn
         noise_stft_mag_features = tf.reshape(noise_stft_mag_features, (numFeatures, numSegments, 1), name="noise_stft_mag_features")
-        clean_stft_magnitude = tf.reshape(clean_stft_magnitude, (numFeatures, 1, 1), name="clean_stft_magnitude") # [TODO] Chekc
+        clean_stft_magnitude = tf.reshape(clean_stft_magnitude, (numFeatures, 1, 1), name="clean_stft_magnitude") # [TODO] Check
         noise_stft_phase = tf.reshape(noise_stft_phase, (numFeatures,), name="noise_stft_phase")
     
         noisy_stft = tf.stack([noise_stft_mag_features, noise_stft_phase])
@@ -162,30 +162,37 @@ def tf_record_parser(record):
             clean_stft_phase = tf.io.decode_raw(features['clean_stft_phase'], tf.float32)
 
         # reshape input and annotation images, lstm
-        noise_stft_real = tf.reshape(noise_stft_real, (1, numSegments, numFeatures), name="noise_stft_real")
-        clean_stft_real = tf.reshape(clean_stft_real, (1, numSegments, numFeatures), name="clean_stft_real")
+        # noise_stft_real = tf.reshape(noise_stft_real, (1, numSegments, numFeatures), name="noise_stft_real")
+        # clean_stft_real = tf.reshape(clean_stft_real, (1, numSegments, numFeatures), name="clean_stft_real")
 
-        noise_stft_imag = tf.reshape(noise_stft_imag, (1, numSegments, numFeatures), name="noise_stft_imag")
-        clean_stft_imag = tf.reshape(clean_stft_imag, (1, numSegments, numFeatures), name="clean_stft_imag")    
+        # noise_stft_imag = tf.reshape(noise_stft_imag, (1, numSegments, numFeatures), name="noise_stft_imag")
+        # clean_stft_imag = tf.reshape(clean_stft_imag, (1, numSegments, numFeatures), name="clean_stft_imag")    
 
-        noisy_feature = tf.stack([noise_stft_real, noise_stft_imag], name="noisy")
-        clean_feature = tf.stack([clean_stft_real, clean_stft_imag], name="clean")
+        # noisy_feature = tf.stack([noise_stft_real, noise_stft_imag], name="noisy")
+        # clean_feature = tf.stack([clean_stft_real, clean_stft_imag], name="clean")
 
-        return noisy_feature, clean_feature # multiinput, multioutput
+        noise_stft_magnitude = tf.reshape(noise_stft_magnitude/(numFeatures-1)*2, (1, numSegments, numFeatures), name="noise_stft_magnitude")
+        clean_stft_magnitude = tf.reshape(clean_stft_magnitude/(numFeatures-1)*2, (1, numSegments, numFeatures), name="clean_stft_magnitude")
+
+        noise_stft_phase = tf.reshape(noise_stft_phase, (1, numSegments, numFeatures), name="noise_stft_phase")
+        clean_stft_phase = tf.reshape(clean_stft_phase, (1, numSegments, numFeatures), name="clean_stft_phase")    
+
+        noisy_feature = tf.stack([noise_stft_magnitude, noise_stft_phase], name="noisy")
+        clean_feature = tf.stack([clean_stft_magnitude, clean_stft_phase], name="clean")
+
+        # return (noise_stft_real, noise_stft_imag), (clean_stft_real, clean_stft_imag) # multiinput, multioutput, list x tuple o
+        return noisy_feature, clean_feature
     else:
         raise ValueError("Model didn't implement...")
 
 train_dataset = tf.data.TFRecordDataset([train_tfrecords_filenames])
 train_dataset = train_dataset.map(tf_record_parser)
-# train_dataset = train_dataset.map(lambda file: tf.py_function(func=tf_record_parser, inp=file, Tout=tf.float32))
-
 train_dataset = train_dataset.shuffle(8192)
 train_dataset = train_dataset.repeat()
 train_dataset = train_dataset.batch(512)
 train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
 # val_dataset
-
 test_dataset = tf.data.TFRecordDataset([val_tfrecords_filenames])
 test_dataset = test_dataset.map(tf_record_parser)
 test_dataset = test_dataset.repeat(1)
@@ -266,7 +273,7 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_sav
                                                          test='val_loss', save_best_only=True)
 time_callback = TimeHistory(filepath=console_log_save_path)
 
-model.fit(train_dataset,
+model.fit(train_dataset, # model.fit([pair_1, pair_2], labels, epochs=50)
          steps_per_epoch=5, # you might need to change this
          validation_data=test_dataset,
          epochs=1,

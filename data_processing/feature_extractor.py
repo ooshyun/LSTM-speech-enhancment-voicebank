@@ -9,7 +9,7 @@ class FeatureExtractor:
         self.window_length = windowLength
         self.overlap = overlap
         self.sample_rate = sample_rate
-        self.window = scipy.signal.hamming(self.window_length, sym=False)
+        self.window = scipy.signal.hamming(self.window_length, sym=False) # [TODO] sym False?
 
     def get_stft_spectrogram(self):
         return librosa.stft(self.audio, n_fft=self.fft_length, win_length=self.window_length, hop_length=self.overlap,
