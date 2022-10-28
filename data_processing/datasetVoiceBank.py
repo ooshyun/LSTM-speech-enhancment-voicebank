@@ -25,7 +25,6 @@ class DatasetVoiceBank:
         self.clean_filenames = clean_filenames
         self.noisy_filenames = noisy_filenames
         self.top_db = config['top_db']
-        self.normalized = config['normalize']
         self.sample_rate = config['fs']
         self.overlap = config['overlap']
         self.window_length = config['windowLength']
