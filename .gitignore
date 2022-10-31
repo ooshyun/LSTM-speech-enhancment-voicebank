@@ -5,3 +5,4 @@
 !history/
 !.gitignore
 !*.ipynb
+!*.pkl

@@ -4,6 +4,9 @@ from data_processing.VoiceBankDEMAND import VoiceBandDEMAND
 from data_processing.dataset import Dataset
 from data_processing.datasetVoiceBank import DatasetVoiceBank
 from data_processing.datasetVoiceBankTime import DatasetVoiceBankTime
+import os
+import pickle
+from pathlib import Path
 import warnings
 
 warnings.filterwarnings(action='ignore')
@@ -21,11 +24,17 @@ warnings.filterwarnings(action='ignore')
 # clean_test_filenames = mcv.get_test_filenames()
 # noise_test_filenames = us8K.get_test_filenames()
 
-voiceBankDEMAND_basepath = '/Users/seunghyunoh/workplace/study/NoiseReduction/Tiny-SpeechEnhancement/data/VoiceBankDEMAND/DS_10283_2791'
-# voiceBankDEMAND_basepath = '/home/daniel0413/workplace/project/SpeechEnhancement/TinyML/data/VoiceBankDEMAND'
-
-voiceBank = VoiceBandDEMAND(voiceBankDEMAND_basepath, val_dataset_percent=0.3)
-clean_train_filenames, noisy_train_filenames, clean_val_filenames, noisy_val_filenames = voiceBank.get_train_val_filenames()
+# voiceBankDEMAND_basepath = '/Users/seunghyunoh/workplace/study/NoiseReduction/Tiny-SpeechEnhancement/data/VoiceBankDEMAND/DS_10283_2791'
+voiceBankDEMAND_basepath = '/home/daniel0413/workplace/project/SpeechEnhancement/TinyML/data/VoiceBankDEMAND'
+voiceBank_pickle = "./voiceband_train_valid.pkl"
+if os.path.exists(voiceBank_pickle):
+    with open("./voiceband_train_valid.pkl", 'rb') as tmp:
+        clean_train_filenames, noisy_train_filenames, clean_val_filenames, noisy_val_filenames = pickle.load(tmp)
+else:
+    voiceBank = VoiceBandDEMAND(voiceBankDEMAND_basepath, val_dataset_percent=0.3)
+    clean_train_filenames, noisy_train_filenames, clean_val_filenames, noisy_val_filenames = voiceBank.get_train_val_filenames()
+    with open(voiceBank_pickle, 'wb') as tmp:
+        pickle.dump([clean_train_filenames, noisy_train_filenames, clean_val_filenames, noisy_val_filenames], tmp)
 
 # # cnn-denoiser
 # windowLength = 256
@@ -45,6 +54,7 @@ clean_train_filenames, noisy_train_filenames, clean_val_filenames, noisy_val_fil
 
 # lstm
 windowLength = 512
+
 top_db_list = [100] # [20, 40, 80]
 
 for top_db in top_db_list:
