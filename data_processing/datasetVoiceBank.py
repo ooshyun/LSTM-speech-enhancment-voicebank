@@ -67,8 +67,8 @@ class DatasetVoiceBank:
             axes[1].plot(audio_remove_slience)
             axes[2].plot(np.array(trimed_audio))
         
-        fig.savefig(f"./data/preprocess/{self.top_db}_top_db/comparision_{name.split('/')[-1].split('.')[0]}.jpg")
-        plt.close()
+            fig.savefig(f"./data/preprocess/{self.top_db}_top_db/comparision_{name.split('/')[-1].split('.')[0]}.jpg")
+            plt.close()
 
         return indices, np.array(trimed_audio)
 
@@ -136,11 +136,10 @@ class DatasetVoiceBank:
         noisy_real, noisy_imag = np.real(noisy_spectrogram), np.imag(noisy_spectrogram)
         clean_real, clean_imag = np.real(clean_spectrogram), np.imag(clean_spectrogram)
 
-        clean_magnitude = self._phase_aware_scaling(clean_magnitude, clean_phase, noisy_phase) # is it need?
-
-        scaler = StandardScaler(copy=False, with_mean=True, with_std=True)
-        noisy_magnitude = scaler.fit_transform(noisy_magnitude)
-        clean_magnitude = scaler.transform(clean_magnitude)
+        # clean_magnitude = self._phase_aware_scaling(clean_magnitude, clean_phase, noisy_phase) # is it need?
+        # scaler = StandardScaler(copy=False, with_mean=True, with_std=True)
+        # noisy_magnitude = scaler.fit_transform(noisy_magnitude)
+        # clean_magnitude = scaler.transform(clean_magnitude)
 
         return noisy_magnitude, clean_magnitude, noisy_phase, clean_phase, noisy_real, clean_real, noisy_imag, clean_imag
 
@@ -148,7 +147,7 @@ class DatasetVoiceBank:
         counter = 0
         # p = multiprocessing.Pool(multiprocessing.cpu_count())
             
-        folder = Path(f"./records_{model_name}") # _{self.top_db}")
+        folder = Path(f"./records_{model_name}_{self.top_db}")
         
         if not folder.is_dir():
             folder.mkdir()
