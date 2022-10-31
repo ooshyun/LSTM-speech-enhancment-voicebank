@@ -45,10 +45,13 @@ clean_train_filenames, noisy_train_filenames, clean_val_filenames, noisy_val_fil
 
 # lstm
 windowLength = 512
-for top_db in [20, 40, 80]
+top_db_list = [100] # [20, 40, 80]
+
+for top_db in top_db_list:
     config = {'top_db': top_db,
             'windowLength': windowLength,
             'overlap': round(0.5 * windowLength),
+            'center': True,
             'fs': 16000,
             'audio_max_duration': 1.008}
 

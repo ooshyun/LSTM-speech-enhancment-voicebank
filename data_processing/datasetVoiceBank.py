@@ -1,3 +1,10 @@
+"""
+ - Reference. 2016, Investigating RNN-based speech enhancement methods for noise-robust Text-to-Speech
+ 
+ ITU-T P.56 method [26] to calculate active speech levels using the code provided in [13]. 
+ The clean waveforms were added to noise after they had been normalised and silence segments 
+ longer than 200 ms had been trimmed off from the beginning and end of each sentence.
+"""
 from concurrent.futures import ProcessPoolExecutor
 from distutils.command.clean import clean
 import librosa
@@ -25,7 +32,7 @@ class DatasetVoiceBank:
         self.clean_filenames = clean_filenames
         self.noisy_filenames = noisy_filenames
         self.top_db = config['top_db']
-        self.normalized = config['normalize']
+        self.center = config['center']
         self.sample_rate = config['fs']
         self.overlap = config['overlap']
         self.window_length = config['windowLength']
@@ -104,7 +111,7 @@ class DatasetVoiceBank:
         # extract stft features from noisy audio
         noisy_input_fe = FeatureExtractor(noisy_audio, windowLength=self.window_length, overlap=self.overlap,
                                           sample_rate=self.sample_rate)
-        noisy_spectrogram = noisy_input_fe.get_stft_spectrogram()
+        noisy_spectrogram = noisy_input_fe.get_stft_spectrogram(self.center)
 
         # Or get the phase angle (in radians)
         # noisy_stft_magnitude, noisy_stft_phase = librosa.magphase(noisy_stft_features)
@@ -116,7 +123,7 @@ class DatasetVoiceBank:
         # extract stft features from clean audio
         clean_audio_fe = FeatureExtractor(clean_audio, windowLength=self.window_length, overlap=self.overlap,
                                           sample_rate=self.sample_rate)
-        clean_spectrogram = clean_audio_fe.get_stft_spectrogram()
+        clean_spectrogram = clean_audio_fe.get_stft_spectrogram(self.center)
         # clean_spectrogram = cleanAudioFE.get_mel_spectrogram()
 
         # get the clean phase
@@ -141,13 +148,13 @@ class DatasetVoiceBank:
         counter = 0
         # p = multiprocessing.Pool(multiprocessing.cpu_count())
             
-        folder = Path(f"./records_{model_name}_{self.top_db}")
+        folder = Path(f"./records_{model_name}") # _{self.top_db}")
         
         if not folder.is_dir():
             folder.mkdir()
 
         for i in range(0, len(self.clean_filenames), subset_size):
-            # subset_size = 10 # Test
+            subset_size = 10 # Test
 
             tfrecord_filename = str(folder / f"{prefix}_{str(counter)}.tfrecords")
 
@@ -218,8 +225,8 @@ class DatasetVoiceBank:
                     print("[DEBUG]: ", noise_stft_mag_features.shape, noisy_stft_phase.shape, clean_stft_magnitude.shape, clean_stft_phase.shape)
                     print("[DEBUG]: ", noise_stft_mag_features.dtype, noisy_stft_phase.dtype, clean_stft_magnitude.dtype, clean_stft_phase.dtype)
 
-                    for x_, y_, p_, p_c in zip(noise_stft_mag_features, clean_stft_magnitude, noisy_stft_phase, clean_stft_phase):
-                        example = get_tf_feature_custom(x_, y_, p_, p_c)
+                    for noise_mag, clean_mag, noisy_phase, clean_phase in zip(noise_stft_mag_features, clean_stft_magnitude, noisy_stft_phase, clean_stft_phase):
+                        example = get_tf_feature_custom(noise_mag, clean_mag, noisy_phase, clean_phase)
                         writer.write(example.SerializeToString())    
                 else:
                     logging.info("Since not implemented model, so no processing...")
@@ -228,5 +235,4 @@ class DatasetVoiceBank:
             counter += 1
             writer.close()
 
-            # break
-
+            break

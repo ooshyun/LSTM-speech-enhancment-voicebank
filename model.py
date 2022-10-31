@@ -36,34 +36,49 @@ from metrics import (
     NB_PESQ
 )
 
-# _model_name = 'cnn'
-_model_name = 'lstm'
+model_name = 'cnn'
+# model_name = 'lstm'
 
-if _model_name == "cnn":
-    win_length = 256
+# domain = 'freq'
+domain = 'time'
+
+top_db = 80
+center = True
+
+if model_name == "cnn":
+    n_fft    = 256
+    win_length = n_fft
     overlap      = round(0.25 * win_length) # overlap of 75%
-    n_fft    = win_length
     inputFs      = 48e3
     fs           = 16e3
     numFeatures  = n_fft//2 + 1
     numSegments  = 8
 
-elif _model_name == "lstm":
-    win_length = 512
+elif model_name == "lstm":
+    n_fft    = 512
+    win_length = n_fft
     overlap      = round(0.5 * win_length) # overlap of 50%
-    n_fft    = win_length
     inputFs      = 48e3
     fs           = 16e3
     numFeatures  = n_fft//2 + 1
-    numSegments  = 62 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
+    numSegments  = 64 if center else 62 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
+else:
+    NotImplementedError("Only implemented cnn and lstm")
 
-print("win_length:",win_length)
-print("overlap:",overlap)
-print("n_fft:",n_fft)
-print("inputFs:",inputFs)
-print("fs:",fs)
-print("numFeatures:",numFeatures)
-print("numSegments:",numSegments)
+config = {'top_db': top_db,
+    'nfft': n_fft,
+    'overlap': round(0.5 * win_length),
+    'center': center,
+    'fs': 16000,
+    'audio_max_duration': 1.008,
+    'numFeatures':numFeatures,
+    'numSegments':numSegments,
+    }
+
+print("-"*30)
+for key, value in config.items():
+    print(f"{key} : {value}")
+print("-"*30)
 
 def conv_block(x, filters, kernel_size, strides, padding='same', use_bn=True):
   x = Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding=padding, use_bias=False,
@@ -463,8 +478,6 @@ def build_model_lstm(power=0.3):
   #             loss= meanSquareError(), # 'mse'
   #             metrics=[keras.metrics.RootMeanSquaredError('rmse'), 
   #             ])
-
-  tf.print("[DEBUG] ", outputs.shape)
 
   model.compile(optimizer=optimizer, 
               loss= mean_absolute_error_amplitdue_phase,

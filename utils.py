@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import pickle
 import librosa
@@ -103,17 +104,17 @@ def get_tf_feature(noise_stft_mag_features, clean_stft_magnitude, noise_stft_pha
     return example
 
 
-def get_tf_feature_custom(noise_stft_mag_features, clean_stft_magnitude, noise_stft_phase, clean_stft_phase):
-    noise_stft_mag_features = noise_stft_mag_features.astype(np.float32).tostring()
+def get_tf_feature_custom(noisy_stft_magnitude, clean_stft_magnitude, noise_stft_phase, clean_stft_phase):
+    noisy_stft_magnitude = noisy_stft_magnitude.astype(np.float32).tostring()
     clean_stft_magnitude = clean_stft_magnitude.astype(np.float32).tostring()
     noise_stft_phase = noise_stft_phase.astype(np.float32).tostring()
     clean_stft_phase = clean_stft_phase.astype(np.float32).tostring()
 
     example = tf.train.Example(features=tf.train.Features(feature={
-        'noise_stft_phase': _bytes_feature(noise_stft_phase),
-        'noise_stft_mag_features': _bytes_feature(noise_stft_mag_features),
-        'clean_stft_phase': _bytes_feature(clean_stft_phase),
+        'noisy_stft_magnitude': _bytes_feature(noisy_stft_magnitude),
         'clean_stft_magnitude': _bytes_feature(clean_stft_magnitude),
+        'noise_stft_phase': _bytes_feature(noise_stft_phase),
+        'clean_stft_phase': _bytes_feature(clean_stft_phase),
         }))
     return example
 
@@ -126,3 +127,71 @@ def get_tf_feature_time(noisy, clean):
         'clean': _bytes_feature(clean)
         }))
     return example
+
+
+def stft_tensorflow(wav, nfft, hop_length, center=True):
+    if center:
+        padding = [(0, 0) for _ in range(len(wav.get_shape()))]
+        padding[-1] = (int(nfft // 2), int(nfft // 2))
+        wav = tf.pad(wav, padding, mode='constant')
+
+    window_fn = tf.signal.hamming_window
+    wav_stft = tf.signal.stft(wav, frame_length=nfft, frame_step=hop_length, window_fn=window_fn, pad_end=False)
+    
+    # if using inverse stft, 
+    # inverse_stft = tf.signal.inverse_stft(
+    #   wav_stft, frame_length=n_fft, frame_step=overlap,
+    #   window_fn=tf.signal.inverse_stft_window_fn(
+    #      frame_step=overlap, forward_window_fn=window_fn))
+    
+    # [TODO] Phase aware process
+    wav_stft_mag_features = tf.abs(wav_stft)
+    wav_stft_phase = tf.experimental.numpy.angle(wav_stft)
+    wav_stft_real = tf.math.real(wav_stft)
+    wav_stft_imag = tf.math.imag(wav_stft)
+
+    return wav_stft_mag_features, wav_stft_phase, wav_stft_real, wav_stft_imag
+
+class TimeHistory(tf.keras.callbacks.Callback):
+    def __init__(self, filepath):
+        super(TimeHistory, self).__init__()
+        self.filepath = filepath
+
+    def on_train_begin(self, logs={}):
+        self.epoch_times = []
+        self.batch_times = []
+        self.train_time = []
+        self.train_time.append(time.perf_counter())
+
+    def on_batch_begin(self, batch, logs={}):
+        self.batch_time_start = time.perf_counter()
+
+    def on_batch_end(self, batch, logs={}):
+        self.batch_times.append(time.perf_counter() - self.batch_time_start)
+
+    def on_epoch_begin(self, epoch, logs={}):
+        self.epoch_time_start = time.perf_counter()
+
+    def on_epoch_end(self, epoch, logs={}):
+        self.epoch_times.append(time.perf_counter() - self.epoch_time_start)
+
+    def on_train_end(self, logs={}):
+        self.train_time.append(time.perf_counter())
+
+        log_file_path = self.filepath
+        with open(log_file_path, "w") as tmp:
+            tmp.write(f"  Total time\n")
+            tmp.write(f"start    : {self.train_time[0]} sec\n")
+            tmp.write(f"end      : {self.train_time[1]} sec\n")
+            tmp.write(f"duration : {self.train_time[1]- self.train_time[0]} sec\n")
+            
+            tmp.write(f"  Epoch time, {len(self.epoch_times)}\n")
+            for epoch, t in enumerate(self.epoch_times):
+                tmp.write(f"{epoch} : {t}\n")
+
+            tmp.write(f"  Batch time, {len(self.batch_times)}\n")
+            
+            for num, t in enumerate(self.batch_times):
+                tmp.write(f"{t} ")
+                if num % 100 == 99:
+                    tmp.write(f"\n")
