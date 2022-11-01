@@ -1,3 +1,4 @@
+import yaml
 import time
 import numpy as np
 import pickle
@@ -195,3 +196,34 @@ class TimeHistory(tf.keras.callbacks.Callback):
                 tmp.write(f"{t} ")
                 if num % 100 == 99:
                     tmp.write(f"\n")
+
+def load_yaml(path: str, *args, **kwargs) -> dict:
+    with open(path, "r") as tmp:
+        try:
+            return dict2obj(yaml.safe_load(tmp))
+            
+        except yaml.YAMLError as exc:
+            print(exc)
+
+# declaring a class
+class Config:
+    pass
+
+def dict2obj(d):
+    # checking whether object d is a
+    # instance of class list
+    if isinstance(d, list):
+           d = [dict2obj(x) for x in d] 
+  
+    # if d is not a instance of dict then
+    # directly object is returned
+    if not isinstance(d, dict):
+           return d
+   
+    # constructor of the class passed to obj
+    obj = Config()
+   
+    for k in d:
+        obj.__dict__[k] = dict2obj(d[k])
+    return obj
+   

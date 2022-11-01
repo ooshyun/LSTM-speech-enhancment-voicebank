@@ -36,194 +36,20 @@ from metrics import (
     NB_PESQ
 )
 
-model_name = 'cnn'
-# model_name = 'lstm'
-
-# domain = 'freq'
-domain = 'time'
-
-top_db = 80
-center = True
-
-if model_name == "cnn":
-    n_fft    = 256
-    win_length = n_fft
-    overlap      = round(0.25 * win_length) # overlap of 75%
-    inputFs      = 48e3
-    fs           = 16e3
-    numFeatures  = n_fft//2 + 1
-    numSegments  = 8
-
-elif model_name == "lstm":
-    n_fft    = 512
-    win_length = n_fft
-    overlap      = round(0.5 * win_length) # overlap of 50%
-    inputFs      = 48e3
-    fs           = 16e3
-    numFeatures  = n_fft//2 + 1
-    numSegments  = 64 if center else 62 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
-else:
-    NotImplementedError("Only implemented cnn and lstm")
-
-config = {'top_db': top_db,
-    'nfft': n_fft,
-    'overlap': round(0.5 * win_length),
-    'center': center,
-    'fs': 16000,
-    'audio_max_duration': 1.008,
-    'numFeatures':numFeatures,
-    'numSegments':numSegments,
-    }
-
-print("-"*30)
-for key, value in config.items():
-    print(f"{key} : {value}")
-print("-"*30)
-
-def conv_block(x, filters, kernel_size, strides, padding='same', use_bn=True):
-  x = Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding=padding, use_bias=False,
-          kernel_regularizer=keras.regularizers.l2(0.0006))(x)
-  x = Activation('relu')(x)
-  if use_bn:
-    x = BatchNormalization()(x)
-  return x
-
-def full_pre_activation_block(x, filters, kernel_size, strides, padding='same', use_bn=True):
-  shortcut = x
-  in_channels = x.shape[-1]
-
-  x = BatchNormalization()(x)
-  x = Activation('relu')(x)
-  x = Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding='same')(x)
-
-  x = BatchNormalization()(x)
-  x = Activation('relu')(x)
-  x = Conv2D(filters=in_channels, kernel_size=kernel_size, strides=strides, padding='same')(x)
-
-  return shortcut + x
-
-
-def build_model(l2_strength):
-  inputs = Input(shape=[numFeatures, numSegments, 1])
-  x = inputs
-  
-  # -----
-  x = ZeroPadding2D(((4,4), (0,0)))(x)
-  x = Conv2D(filters=18, kernel_size=[9,8], strides=[1, 1], padding='valid', use_bias=False,
-              kernel_regularizer=keras.regularizers.l2(l2_strength))(x)
-  x = Activation('relu')(x)
-  x = BatchNormalization()(x)
-
-  skip0 = Conv2D(filters=30, kernel_size=[5,1], strides=[1, 1], padding='same', use_bias=False,
-                 kernel_regularizer=keras.regularizers.l2(l2_strength))(x)
-  x = Activation('relu')(skip0)
-  x = BatchNormalization()(x)
-
-  x = Conv2D(filters=8, kernel_size=[9,1], strides=[1, 1], padding='same', use_bias=False,
-              kernel_regularizer=keras.regularizers.l2(l2_strength))(x)
-  x = Activation('relu')(x)
-  x = BatchNormalization()(x)
-
-  # -----
-  x = Conv2D(filters=18, kernel_size=[9,1], strides=[1, 1], padding='same', use_bias=False,
-              kernel_regularizer=keras.regularizers.l2(l2_strength))(x)
-  x = Activation('relu')(x)
-  x = BatchNormalization()(x)
-
-  skip1 = Conv2D(filters=30, kernel_size=[5,1], strides=[1, 1], padding='same', use_bias=False,
-                 kernel_regularizer=keras.regularizers.l2(l2_strength))(x)
-  x = Activation('relu')(skip1)
-  x = BatchNormalization()(x)
-
-  x = Conv2D(filters=8, kernel_size=[9,1], strides=[1, 1], padding='same', use_bias=False,
-              kernel_regularizer=keras.regularizers.l2(l2_strength))(x)
-  x = Activation('relu')(x)
-  x = BatchNormalization()(x)
-
-  # ----
-  x = Conv2D(filters=18, kernel_size=[9,1], strides=[1, 1], padding='same', use_bias=False,
-              kernel_regularizer=keras.regularizers.l2(l2_strength))(x)
-  x = Activation('relu')(x)
-  x = BatchNormalization()(x)
-  
-  x = Conv2D(filters=30, kernel_size=[5,1], strides=[1, 1], padding='same', use_bias=False,
-              kernel_regularizer=keras.regularizers.l2(l2_strength))(x)
-  x = Activation('relu')(x)
-  x = BatchNormalization()(x)
-
-  x = Conv2D(filters=8, kernel_size=[9,1], strides=[1, 1], padding='same', use_bias=False,
-              kernel_regularizer=keras.regularizers.l2(l2_strength))(x)
-  x = Activation('relu')(x)
-  x = BatchNormalization()(x)
-
-  # ----
-  x = Conv2D(filters=18, kernel_size=[9,1], strides=[1, 1], padding='same', use_bias=False,
-              kernel_regularizer=keras.regularizers.l2(l2_strength))(x)
-  x = Activation('relu')(x)
-  x = BatchNormalization()(x)
-
-  x = Conv2D(filters=30, kernel_size=[5,1], strides=[1, 1], padding='same', use_bias=False,
-             kernel_regularizer=keras.regularizers.l2(l2_strength))(x)
-  x = x + skip1
-  x = Activation('relu')(x)
-  x = BatchNormalization()(x)
-
-  x = Conv2D(filters=8, kernel_size=[9,1], strides=[1, 1], padding='same', use_bias=False,
-              kernel_regularizer=keras.regularizers.l2(l2_strength))(x)
-  x = Activation('relu')(x)
-  x = BatchNormalization()(x)
-
-  # ----
-  x = Conv2D(filters=18, kernel_size=[9,1], strides=[1, 1], padding='same', use_bias=False,
-              kernel_regularizer=keras.regularizers.l2(l2_strength))(x)
-  x = Activation('relu')(x)
-  x = BatchNormalization()(x)
-
-  x = Conv2D(filters=30, kernel_size=[5,1], strides=[1, 1], padding='same', use_bias=False,
-             kernel_regularizer=keras.regularizers.l2(l2_strength))(x)
-  x = x + skip0
-  x = Activation('relu')(x)
-  x = BatchNormalization()(x)
-
-  x = Conv2D(filters=8, kernel_size=[9,1], strides=[1, 1], padding='same', use_bias=False,
-              kernel_regularizer=keras.regularizers.l2(l2_strength))(x)
-  x = Activation('relu')(x)
-  x = BatchNormalization()(x)
-
-  # ----
-  x = SpatialDropout2D(0.2)(x)
-  x = Conv2D(filters=1, kernel_size=[129,1], strides=[1, 1], padding='same')(x)
-
-  model = Model(inputs=inputs, outputs=x)
-
-  optimizer = keras.optimizers.Adam(3e-4)
-  #optimizer = RAdam(total_steps=10000, warmup_proportion=0.1, min_lr=3e-4)
-
-  model.compile(optimizer=optimizer, loss='mse', 
-                metrics=[keras.metrics.RootMeanSquaredError('rmse')])
-  return model
-
-
 class MelSpec(Layer):
     def __init__(
         self,
-        frame_length=n_fft,
-        frame_step=overlap,
-        fft_length=None,
-        sampling_rate=16000,
-        num_mel_channels=128,
-        freq_min=125,
-        freq_max=8000,
+        args,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.frame_length = frame_length
-        self.frame_step = frame_step
-        self.fft_length = fft_length
-        self.sampling_rate = sampling_rate
-        self.num_mel_channels = num_mel_channels
-        self.freq_min = freq_min
-        self.freq_max = freq_max
+        self.frame_length = args.dset.n_fft
+        self.frame_step = args.dset.hop_length
+        self.fft_length = args.dset.n_fft
+        self.sampling_rate = args.dset.sample_rate
+        self.num_mel_channels = args.dset.n_mels
+        self.freq_min = args.dset.f_min
+        self.freq_max = args.dset.f_max
         
         # Defining mel filter. This filter will be multiplied with the STFT output
         self.mel_filterbank = tf.signal.linear_to_mel_weight_matrix(
@@ -255,25 +81,20 @@ class MelSpec(Layer):
         return config
 
 class InverseMelSpec(Layer):
+   
     def __init__(
         self,
-        frame_length=n_fft,
-        frame_step=overlap,
-        fft_length=None,
-        sampling_rate=16000,
-        num_mel_channels=128,
-        freq_min=125,
-        freq_max=8000,
+        args,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.frame_length = frame_length
-        self.frame_step = frame_step
-        self.fft_length = fft_length
-        self.sampling_rate = sampling_rate
-        self.num_mel_channels = num_mel_channels
-        self.freq_min = freq_min
-        self.freq_max = freq_max
+        self.frame_length = args.dset.n_fft
+        self.frame_step = args.dset.hop_length
+        self.fft_length = args.dset.n_fft
+        self.sampling_rate = args.dset.sample_rate
+        self.num_mel_channels = args.dset.n_mels
+        self.freq_min = args.dset.f_min
+        self.freq_max = args.dset.f_max
         
         # Defining mel filter. This filter will be multiplied with the STFT output
         self.mel_filterbank = tf.signal.linear_to_mel_weight_matrix(
@@ -307,13 +128,6 @@ class InverseMelSpec(Layer):
 def get_mel_filter(samplerate, n_fft, n_mels, fmin, fmax):
     mel_basis = mel(sr=samplerate, n_fft=n_fft, n_mels=n_mels, fmin=fmin, fmax=fmax)
     return tf.convert_to_tensor(mel_basis, dtype=tf.float32)
-
-# TODO add custom losses and metrics
-# import keras.losses 
-# import keras.metrics
-# keras.losses.mean_absolute_error # loss = mean(abs(y_true - y_pred), axis=-1)
-# keras.losses.mean_squared_error # loss = mean(square(y_true - y_pred), axis=-1)
-# keras.metrics.RootMeanSquaredError # metric = sqrt(mean(square(y_true - y_pred)))
 
 def convert_stft_from_amplitude_phase(y):
   y_amplitude = y[..., 0, :, :, :] # amp/phase, ch, frame, freq
@@ -394,10 +208,11 @@ class SpeechMetric(tf.keras.metrics.Metric):
 
     [TODO] Verification, compared with pytorch
   """
-  def __init__(self, metric, name='sisdr', **kwargs):
+  def __init__(self, metric, args, name='sisdr', **kwargs):
     super(SpeechMetric, self).__init__(name=name, **kwargs)
     self.metric = metric 
     self.metric_name = name
+    self.args = args.dset
     self.score = self.add_weight(name=f"{name}_value", initializer='zeros')
     self.total = self.add_weight(name='total', initializer='zeros')
 
@@ -405,20 +220,26 @@ class SpeechMetric(tf.keras.metrics.Metric):
     reference_stft_librosa = convert_stft_from_amplitude_phase(y_true)
     estimation_stft_librosa = convert_stft_from_amplitude_phase(y_pred)
 
-    reference_stft_librosa *= 2*(reference_stft_librosa.shape[-1]-1)
-    estimation_stft_librosa *= 2*(reference_stft_librosa.shape[-1]-1)
+    # related with preprocess normalized fft 
+    if self.args.fft_normalize:
+        scale_factor = 2*(reference_stft_librosa.shape[-1]-1-1)
+    else:
+        scale_factor = 1
+
+    reference_stft_librosa *= scale_factor
+    estimation_stft_librosa *= scale_factor
 
     window_fn = tf.signal.hamming_window
 
     reference = tf.signal.inverse_stft(
-      reference_stft_librosa, frame_length=n_fft, frame_step=overlap,
+      reference_stft_librosa, frame_length=self.args.n_fft, frame_step=self.args.hop_length,
       window_fn=tf.signal.inverse_stft_window_fn(
-         frame_step=overlap, forward_window_fn=window_fn))
+         frame_step=self.args.hop_length, forward_window_fn=window_fn))
     
     estimation = tf.signal.inverse_stft(
-      estimation_stft_librosa, frame_length=n_fft, frame_step=overlap,
+      estimation_stft_librosa, frame_length=self.args.n_fft, frame_step=self.args.hop_length,
       window_fn=tf.signal.inverse_stft_window_fn(
-         frame_step=overlap, forward_window_fn=window_fn))
+         frame_step=self.args.hop_length, forward_window_fn=window_fn))
 
     self.score.assign_add(tf.py_function(func=self.metric, inp=[reference, estimation], Tout=tf.float32,  name=f"{self.metric_name}_metric")) # tf 2.x
     self.total.assign_add(1)
@@ -426,35 +247,36 @@ class SpeechMetric(tf.keras.metrics.Metric):
   def result(self):
     return self.score / self.total
 
-def build_model_lstm(power=0.3):
+def build_model_lstm(args, power=0.3):
   """
     Kernal Initialization
     Bias   Initizlization
+    # [TODO] How to print a tensor while training?
   """
     
   # inputs_real = Input(shape=[1, numSegments, numFeatures], name='input_real')  
   # inputs_imag = Input(shape=[1, numSegments, numFeatures], name='input_imag')  
 
   # [TODO] Normalize
-  inputs = Input(shape=[2, 1, numSegments, numFeatures], name='input')
+  inputs = Input(shape=[2, 1, args.dset.n_segment, args.dset.n_feature], name='input')
 
   # inputs_amp = tf.math.sqrt(tf.math.pow(tf.math.abs(inputs[...,0, :, :, :]), 2)+tf.math.pow(tf.math.abs(inputs[...,1, :, :, :]), 2))
   inputs_amp = inputs[..., 0, :, :, :]
   inputs_phase = inputs[..., 1, :, :, :]
  
   mask = tf.squeeze(inputs_amp, axis=1) # merge channel
-  mask = MelSpec()(mask)
-  mask = LSTM(256, activation='tanh', return_sequences=True)(mask)
-  mask = LSTM(256, activation='tanh', return_sequences=True)(mask)
+  mask = MelSpec(args)(mask)
+  mask = LSTM(args.model.lstm_layer, activation='tanh', return_sequences=True)(mask)
+  mask = LSTM(args.model.lstm_layer, activation='tanh', return_sequences=True)(mask)
   
   mask = BatchNormalization()(mask)
 
-  mask = Dense(128, activation='relu', use_bias=True, 
+  mask = Dense(args.model.lstm_layer//2, activation='relu', use_bias=True, 
         kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask) # [TODO] check initialization method
-  mask = Dense(128, activation='sigmoid', use_bias=True,
+  mask = Dense(args.model.lstm_layer//2, activation='sigmoid', use_bias=True,
         kernel_initializer='glorot_uniform', bias_initializer='zeros')(mask) # [TODO] check initialization method
   
-  mask = InverseMelSpec()(mask)
+  mask = InverseMelSpec(args)(mask)
   mask = tf.expand_dims(mask, axis=1) # expand channel
   
   # mask = tf.expand_dims(mask, axis=1) # expand real/imag
@@ -465,25 +287,39 @@ def build_model_lstm(power=0.3):
   # outputs_imag = Multiply()([inputs_imag, mask]) # X_bar = M (Hadamard product) |Y|exp(angle(Y)), Y is noisy
 
   outputs_amp = Multiply()([inputs_amp, mask]) # X_bar = M (Hadamard product) |Y|exp(angle(Y)), Y is noisy
-  outputs = tf.stack([outputs_amp, inputs_phase], axis=-4) # ..., real/imag, ch, num_frame, freq_bin
-
-  # [TODO] How to print a tensor while training?
+  outputs = tf.stack([outputs_amp, inputs_phase], axis=-4) # ..., mag/phase, ch, num_frame, freq_bin
 
   model = Model(inputs=inputs, outputs=outputs)
 
-  # optimizer = keras.optimizers.SGD(1e-3)
-  optimizer = keras.optimizers.Adam(3e-4)
-
+  if args.optim.optim == 'adam':
+    optimizer = keras.optimizers.Adam(args.optim.lr)
+  elif args.optim.optim == 'sgd':
+    optimizer = keras.optimizers.SGD(args.optim.lr)
+  else:
+    raise NotImplementedError(f"Optimizer {args.optim.optim} is not implemented")
+  
+  # check baseline 
   # model.compile(optimizer=optimizer, 
   #             loss= meanSquareError(), # 'mse'
   #             metrics=[keras.metrics.RootMeanSquaredError('rmse'), 
   #             ])
 
+  if args.optim.loss=='mse':
+    loss_function = mean_square_error_amplitdue_phase
+  elif args.optim.loss=='rmse':
+    loss_function = mean_absolute_error_amplitdue_phase
+  elif args.optim.loss=='psa':
+    loss_function = phase_sensitive_spectral_approximation_loss    
+  elif args.optim.loss=='psa_bose':
+    loss_function = phase_sensitive_spectral_approximation_loss_bose
+  else:
+    raise NotImplementedError(f"Optimizer {args.optim.optim} is not implemented")
+
   model.compile(optimizer=optimizer, 
-              loss= mean_absolute_error_amplitdue_phase,
+              loss= loss_function,
               metrics=[
               # keras.metrics.RootMeanSquaredError('rmse')
-              SpeechMetric(metric=SI_SDR, name='sisdr'),
+              SpeechMetric(metric=SI_SDR, args=args, name='sisdr'),
               # SpeechMetric(metric=WB_PESQ, name='wb_pesq'), # no utter weight overload -> [TODO] remove a slience in data using dB scale/ normalize fft
               ])
   return model
