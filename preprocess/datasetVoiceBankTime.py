@@ -2,8 +2,6 @@ from concurrent.futures import ProcessPoolExecutor
 import librosa
 import numpy as np
 import math
-from data_processing.feature_extractor import FeatureExtractor
-from utils import prepare_input_features
 import multiprocessing
 import os
 from pathlib import Path
@@ -15,27 +13,40 @@ import tqdm
 np.random.seed(999)
 tf.random.set_seed(999)
 
-model_name = 'lstm'
-
 class DatasetVoiceBankTime:
-    def __init__(self, clean_filenames, noisy_filenames, **config):
+    def __init__(self, clean_filenames, noisy_filenames, name, args):
         self.clean_filenames = clean_filenames
         self.noisy_filenames = noisy_filenames
-        self.sample_rate = config['fs']
-        self.overlap = config['overlap']
-        self.window_length = config['windowLength']
-        self.audio_max_duration = config['audio_max_duration']
+        self.model_name = name
+        self.sample_rate = args.sample_rate
+        self.overlap = args.hop_length
+        self.window_length = args.win_length
+        self.audio_max_duration = args.segment
+        self.top_db = args.top_db
+        self.max_db = args.max_db
+        self.save_path = args.save_path
+        self.domain = args.domain
+        self.debug = False
 
     def _sample_noisy_filename(self):
         return np.random.choice(self.noisy_filenames)
 
-    def _remove_silent_frames(self, audio):
+    def _remove_silent_frames(self, audio, index_indices=None, name=None):
         trimed_audio = []
-        indices = librosa.effects.split(audio, hop_length=self.overlap, top_db=20)
 
+        if index_indices is None: 
+            indices = librosa.effects.split(audio, hop_length=self.overlap, top_db=self.top_db) # average mse in each frame < -20 dB
+        else:
+            indices = index_indices
+
+        audio_remove_slience = np.zeros_like(audio)
+        for index in indices:
+            audio_remove_slience[index[0]:index[1]] = audio[index[0]: index[1]]
+        
         for index in indices:
             trimed_audio.extend(audio[index[0]: index[1]])
-        return np.array(trimed_audio)
+
+        return indices, np.array(trimed_audio)
 
     def _phase_aware_scaling(self, clean_spectral_magnitude, clean_phase, noise_phase):
         assert clean_phase.shape == noise_phase.shape, "Shapes must match."
@@ -65,9 +76,9 @@ class DatasetVoiceBankTime:
         clean_audio, _ = read_audio(clean_filename, self.sample_rate)
         noisy_audio, sr = read_audio(noisy_filename, self.sample_rate)
 
-        # remove silent frame from clean audio
-        # clean_audio = self._remove_silent_frames(clean_audio)
-        # noisy_audio = self._remove_silent_frames(noisy_audio)
+        if self.top_db <= self.max_db:
+            noisy_index, noisy_audio = self._remove_silent_frames(noisy_audio, None, noisy_filename)
+            noisy_index, clean_audio = self._remove_silent_frames(clean_audio, noisy_index, clean_filename)
 
         # sample random fixed-sized snippets of audio
         clean_audio, noisy_audio= self._audio_random_crop(clean_audio, noisy_audio, duration=self.audio_max_duration)
@@ -80,17 +91,24 @@ class DatasetVoiceBankTime:
 
     def create_tf_record(self, *, prefix, subset_size, parallel=False):
         counter = 0
+        root = self.save_path
         # p = multiprocessing.Pool(multiprocessing.cpu_count())
-
-        folder = Path(f"./records_{model_name}_time")
-        
+        if self.debug:
+            folder = Path(f"{root}/records_{self.model_name}_{self.domain}_{self.top_db}topdb_debug")
+        else:
+            if self.top_db <= self.max_db:
+                folder = Path(f"{root}/records_{self.model_name}_{self.domain}_{self.top_db}topdb")
+            else:
+                folder = Path(f"{root}/records_{self.model_name}_{self.domain}")
+            
         if folder.is_dir():
             pass
         else:
             folder.mkdir()
 
         for i in range(0, len(self.clean_filenames), subset_size):
-            # subset_size = 10 # Test
+            if self.debug:            
+                subset_size = 10
 
             tfrecord_filename = str(folder / f"{prefix}_{str(counter)}.tfrecords")
 
@@ -125,8 +143,9 @@ class DatasetVoiceBankTime:
             for o in out:
                 noisy = o[0]
                 clean = o[1]
-
-                # print("[DEBUG]: ", noisy.shape, clean.shape)
+                
+                if self.debug:
+                    print("[DEBUG]: ", noisy.shape, clean.shape)
 
                 for n, c in zip(noisy, clean):
                     example = get_tf_feature_time(n, c)
@@ -137,5 +156,6 @@ class DatasetVoiceBankTime:
                 
             counter += 1
             writer.close()
-            
-            # break # Test
+
+            if self.debug:            
+                break # Test

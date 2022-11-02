@@ -10,7 +10,7 @@ from distutils.command.clean import clean
 import librosa
 import numpy as np
 import math
-from data_processing.feature_extractor import FeatureExtractor
+from preprocess.feature_extractor import FeatureExtractor
 from utils import prepare_input_features
 import multiprocessing
 import os
@@ -23,21 +23,25 @@ import tqdm
 np.random.seed(999)
 tf.random.set_seed(999)
 
-model_name = 'lstm'
-depth_16bit = 96
 DEBUG_SILENCE = False
 
 class DatasetVoiceBank:
-    def __init__(self, clean_filenames, noisy_filenames, **config):
+    def __init__(self, clean_filenames, noisy_filenames, name, args):
         self.clean_filenames = clean_filenames
         self.noisy_filenames = noisy_filenames
-        self.top_db = config['top_db']
-        self.center = config['center']
-        self.sample_rate = config['fs']
-        self.overlap = config['overlap']
-        self.window_length = config['windowLength']
-        self.audio_max_duration = config['audio_max_duration']
+        self.model_name = name
+        self.top_db = args.top_db
+        self.center = args.center
+        self.sample_rate = args.sample_rate
+        self.overlap = args.hop_length
+        self.window_length = args.win_length
+        self.audio_max_duration = args.segment
+        self.max_db = args.max_db
+        self.save_path = args.save_path
+        self.domain = args.domain
         self.count_image = 0
+        self.debug = False
+
     def _sample_noisy_filename(self):
         return np.random.choice(self.noisy_filenames)
 
@@ -101,7 +105,7 @@ class DatasetVoiceBank:
         noisy_audio, sr = read_audio(noisy_filename, self.sample_rate)
 
         # remove silent frame from clean audio
-        if self.top_db <= depth_16bit:
+        if self.top_db <= self.max_db:
             noisy_index, noisy_audio = self._remove_silent_frames(noisy_audio, None, noisy_filename)
             noisy_index, clean_audio = self._remove_silent_frames(clean_audio, noisy_index, clean_filename)
             
@@ -145,15 +149,22 @@ class DatasetVoiceBank:
 
     def create_tf_record(self, *, prefix, subset_size, parallel=False):
         counter = 0
+        root = self.save_path
         # p = multiprocessing.Pool(multiprocessing.cpu_count())
-            
-        folder = Path(f"./records_{model_name}_{self.top_db}")
-        
+        if self.debug:
+            folder = Path(f"{root}/records_{self.model_name}_{self.domain}_{self.top_db}topdb_debug")
+        else:
+            if self.top_db <= self.max_db:
+                folder = Path(f"{root}/records_{self.model_name}_{self.domain}_{self.top_db}topdb")
+            else:
+                folder = Path(f"{root}/records_{self.model_name}_{self.domain}")
+
         if not folder.is_dir():
             folder.mkdir()
 
         for i in range(0, len(self.clean_filenames), subset_size):
-            subset_size = 10 # Test
+            if self.debug:            
+                subset_size = 10
 
             tfrecord_filename = str(folder / f"{prefix}_{str(counter)}.tfrecords")
 
@@ -191,7 +202,7 @@ class DatasetVoiceBank:
                 noisy_stft_imag = o[6]
                 clean_stft_imag = o[7]
 
-                if model_name == "cnn":
+                if self.model_name == "cnn":
                     # cnn-denoiser input, 8 segementation, 256 window, num frequency, num channel, num segment, 
                     noise_stft_mag_features = prepare_input_features(noisy_stft_magnitude, numSegments=8, numFeatures=129) # cnn-denoiser
 
@@ -207,7 +218,7 @@ class DatasetVoiceBank:
                         example = get_tf_feature(x_, y_, p_)
                         writer.write(example.SerializeToString())
 
-                elif model_name == "lstm":
+                elif self.model_name == "lstm":
                     # lstm, 1 sec segementation, 512 window, num channel, num segment, num frequency
                     # noise_stft_mag_features = prepare_input_features(noisy_stft_magnitude, numSegments=8, numFeatures=256) # already segmentation in 1 sec
                 
@@ -221,8 +232,9 @@ class DatasetVoiceBank:
                     noisy_stft_phase = np.expand_dims(noisy_stft_phase, axis=0)
                     clean_stft_phase = np.expand_dims(clean_stft_phase, axis=0)
 
-                    print("[DEBUG]: ", noise_stft_mag_features.shape, noisy_stft_phase.shape, clean_stft_magnitude.shape, clean_stft_phase.shape)
-                    print("[DEBUG]: ", noise_stft_mag_features.dtype, noisy_stft_phase.dtype, clean_stft_magnitude.dtype, clean_stft_phase.dtype)
+                    if self.debug:
+                        print("[DEBUG]: ", noise_stft_mag_features.shape, noisy_stft_phase.shape, clean_stft_magnitude.shape, clean_stft_phase.shape)
+                        print("[DEBUG]: ", noise_stft_mag_features.dtype, noisy_stft_phase.dtype, clean_stft_magnitude.dtype, clean_stft_phase.dtype)
 
                     for noise_mag, clean_mag, noisy_phase, clean_phase in zip(noise_stft_mag_features, clean_stft_magnitude, noisy_stft_phase, clean_stft_phase):
                         example = get_tf_feature_custom(noise_mag, clean_mag, noisy_phase, clean_phase)
@@ -234,4 +246,5 @@ class DatasetVoiceBank:
             counter += 1
             writer.close()
 
-            break
+            if self.debug:            
+                break

@@ -8,14 +8,12 @@ import IPython.display as ipd
 
 import glob
 import numpy as np
-from utils import prepare_input_features, stft_tensorflow, TimeHistory, load_yaml
+from utils import stft_tensorflow, TimeHistory, load_yaml
 # Load the TensorBoard notebook extension.
 # %load_ext tensorboard
 
 from tensorflow.python.client import device_lib
 import keras.models
-from shutil import copyfile
-
 
 def train(args):
     # 1. Set Paramter
@@ -32,10 +30,10 @@ def train(args):
     num_segments = args.dset.n_segment
 
     # 2. Load data
-    if args.dset.topdb > 96: # 16bit
+    if args.dset.top_db > 96: # 16bit
         path_to_dataset = f"{args.dset.save_path}_{args.model.name}_{args.dset.domain}"
     else:
-        path_to_dataset = f"{args.dset.save_path}_{args.model.name}_{args.dset.domain}_{args.dset.topdb}topdb"
+        path_to_dataset = f"{args.dset.save_path}_{args.model.name}_{args.dset.domain}_{args.dset.top_db}topdb"
     
     # get training and validation tf record file names
     train_tfrecords_filenames = glob.glob(os.path.join(path_to_dataset, 'train_*'))
