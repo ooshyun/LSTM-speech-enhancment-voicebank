@@ -176,11 +176,11 @@ def train(args):
 
 
     # 6. Train Model
-
     # Initialize model
     baseline_val_loss = model.evaluate(test_dataset)[0]
     print(f"Baseline accuracy {baseline_val_loss}")
 
+    # Train
     model.fit(train_dataset, # model.fit([pair_1, pair_2], labels, epochs=50)
             steps_per_epoch=args.steps, # you might need to change this
             validation_data=test_dataset,
