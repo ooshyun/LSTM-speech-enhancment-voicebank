@@ -1,0 +1,53 @@
+default:
+  - _self_
+  - dset: VoiceBankDEMAND
+
+dummy:
+dset:
+  wav: './data/VoiceBankDEMAND'
+  sample_rate: 16000
+  n_fft: 512
+  win_length: 512
+  hop_length: 256
+  n_mels: 128
+  f_min: 125
+  f_max: 8000
+  channels: 1
+  topdb: 100
+  domain: 'time'
+  # domain: 'freq'
+  center: True
+  segment: 1.008
+  n_feature: 257
+  n_segment: 64 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
+  # n_feature: 129 # cnn model
+  # n_segment: 8 
+  save_path: "./preprocess/data/records"
+  fft_normalize: True
+  time_normalize: False
+  
+
+model:
+  name: 'lstm'
+  # name: 'cnn'
+  sample_rate: 16000
+  lstm_layer: 256
+  metric: 'sisdr'
+
+optim:
+  optim: 'adam'
+  lr: 0.0003
+  # optim: 'sgd'
+  # lr: 0.001
+  loss: 'mse'
+  # loss: 'rmse'
+  # loss: 'psa'
+  clip_grad: False
+
+seed: 10
+batch_size: 512
+max_batches: 1024 # ?
+steps: 10
+epochs: 1
+folder: './result'
+debug: False
