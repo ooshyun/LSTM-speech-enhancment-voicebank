@@ -201,13 +201,11 @@ def phase_sensitive_spectral_approximation_loss_bose(y_true, y_pred, train=True)
     loss = tf.math.reduce_mean(loss)
     return loss
 
-import keras.losses
 class CustomMetric(tf.keras.metrics.Metric):
-  def __init__(self, metric, args, name='sisdr', **kwargs):
+  def __init__(self, metric, name='sisdr', **kwargs):
     super(CustomMetric, self).__init__(name=name, **kwargs)
     self.metric = metric 
     self.metric_name = name
-    self.args = args.dset
     self.score = self.add_weight(name=f"{name}_value", initializer='zeros')
     self.total = self.add_weight(name='total', initializer='zeros')
 
@@ -219,11 +217,33 @@ class CustomMetric(tf.keras.metrics.Metric):
         - [TODO] In metrics, we get the loss, which has shape (batch, 1, segments) -> How can losses_utils.ReductionV2.AUTO?
         - [SOL ] pass the train flag and reduce the loss by average
     """
-    self.score.assign_add(tf.py_function(func=self.metric, inp=[y_true, y_pred, False], Tout=tf.float32,  name=f"{self.metric_name}_metric")) # tf 2.x
+    if self.metric=='mse':
+      loss_function = mean_square_error_amplitdue_phase
+    elif self.metric=='rmse':
+      loss_function = mean_absolute_error_amplitdue_phase
+    elif self.metric=='psa':
+      loss_function = phase_sensitive_spectral_approximation_loss    
+    elif self.metric=='psa_bose':
+      loss_function = phase_sensitive_spectral_approximation_loss_bose
+    else:
+      raise NotImplementedError(f"Loss '{self.metric}' is not implemented")
+
+    self.score.assign_add(tf.py_function(func=loss_function, inp=[y_true, y_pred, False], Tout=tf.float32,  name=f"{self.metric_name}_metric")) # tf 2.x
     self.total.assign_add(1)
-    
+
+
   def result(self):
     return self.score / self.total
+  
+  def get_config(self):
+    config = super(CustomMetric, self).get_config()
+    config.update(
+        {
+            "metric": self.metric,
+            "metric_name": self.metric_name,
+        }
+    )
+    return config
 
 class SpeechMetric(tf.keras.metrics.Metric):
   """        
@@ -235,20 +255,31 @@ class SpeechMetric(tf.keras.metrics.Metric):
 
     [TODO] Verification, compared with pytorch
   """
-  def __init__(self, metric, args, name='sisdr', **kwargs):
+  def __init__(self, n_fft, hop_length, normalize, name='sisdr', **kwargs):
     super(SpeechMetric, self).__init__(name=name, **kwargs)
-    self.metric = metric 
     self.metric_name = name
-    self.args = args.dset
+    self.n_fft = n_fft
+    self.hop_length = hop_length
+    self.normalize = normalize
     self.score = self.add_weight(name=f"{name}_value", initializer='zeros')
     self.total = self.add_weight(name='total', initializer='zeros')
-
+    
   def update_state(self, y_true, y_pred, sample_weight=None):
+    if self.metric_name == 'sisdr':
+      func_metric=SI_SDR
+    # elif self.metric_name == 'pesq':
+    #   func_metric=PESQ
+    # elif self.metric_name == 'stoi':
+    #   func_metric=STOI
+    else:
+      raise NotImplementedError(f"Metric function '{self.metric}' is not implemented")
+
+
     reference_stft_librosa = convert_stft_from_amplitude_phase(y_true)
     estimation_stft_librosa = convert_stft_from_amplitude_phase(y_pred)
 
     # related with preprocess normalized fft 
-    if self.args.fft_normalize:
+    if self.normalize:
         scale_factor = 2*(reference_stft_librosa.shape[-1]-1-1)
     else:
         scale_factor = 1
@@ -259,20 +290,32 @@ class SpeechMetric(tf.keras.metrics.Metric):
     window_fn = tf.signal.hamming_window
 
     reference = tf.signal.inverse_stft(
-      reference_stft_librosa, frame_length=self.args.n_fft, frame_step=self.args.hop_length,
+      reference_stft_librosa, frame_length=self.n_fft, frame_step=self.hop_length,
       window_fn=tf.signal.inverse_stft_window_fn(
-         frame_step=self.args.hop_length, forward_window_fn=window_fn))
+         frame_step=self.hop_length, forward_window_fn=window_fn))
     
     estimation = tf.signal.inverse_stft(
-      estimation_stft_librosa, frame_length=self.args.n_fft, frame_step=self.args.hop_length,
+      estimation_stft_librosa, frame_length=self.n_fft, frame_step=self.hop_length,
       window_fn=tf.signal.inverse_stft_window_fn(
-         frame_step=self.args.hop_length, forward_window_fn=window_fn))
+         frame_step=self.hop_length, forward_window_fn=window_fn))
 
-    self.score.assign_add(tf.py_function(func=self.metric, inp=[reference, estimation], Tout=tf.float32,  name=f"{self.metric_name}_metric")) # tf 2.x
+    self.score.assign_add(tf.py_function(func=func_metric, inp=[reference, estimation], Tout=tf.float32,  name=f"{self.metric_name}_metric")) # tf 2.x
     self.total.assign_add(1)
-    
+
   def result(self):
     return self.score / self.total
+
+  def get_config(self):
+    config = super(SpeechMetric, self).get_config()
+    config.update(
+        {
+            "metric_name": self.metric_name,
+            "n_fft": self.n_fft,
+            "hop_length": self.hop_length,
+            "normalize": self.normalize,
+        }
+    )
+    return config
 
 def build_model_lstm(args, power=0.3):
   """
@@ -317,38 +360,38 @@ def build_model_lstm(args, power=0.3):
   outputs = tf.stack([outputs_amp, inputs_phase], axis=-4) # ..., mag/phase, ch, num_frame, freq_bin
 
   model = Model(inputs=inputs, outputs=outputs)
+  return model
 
-  if args.optim.optim == 'adam':
-    optimizer = keras.optimizers.Adam(args.optim.lr)
-  elif args.optim.optim == 'sgd':
-    optimizer = keras.optimizers.SGD(args.optim.lr)
-  else:
-    raise NotImplementedError(f"Optimizer {args.optim.optim} is not implemented")
-  
+
+def compile_model(model:Model, args):
   # check baseline 
   # model.compile(optimizer=optimizer, 
   #             loss= meanSquareError(), # 'mse'
   #             metrics=[keras.metrics.RootMeanSquaredError('rmse'), 
   #             ])
 
-  if args.optim.loss=='mse':
-    loss_function = mean_square_error_amplitdue_phase
-  elif args.optim.loss=='rmse':
-    loss_function = mean_absolute_error_amplitdue_phase
-  elif args.optim.loss=='psa':
-    loss_function = phase_sensitive_spectral_approximation_loss    
-  elif args.optim.loss=='psa_bose':
-    loss_function = phase_sensitive_spectral_approximation_loss_bose
+  if args.optim.optim == 'adam':
+      optimizer = keras.optimizers.Adam(args.optim.lr)
+  elif args.optim.optim == 'sgd':
+      optimizer = keras.optimizers.SGD(args.optim.lr)
   else:
-    raise NotImplementedError(f"Optimizer {args.optim.optim} is not implemented")
+      raise NotImplementedError(f"Optimizer {args.optim.optim} is not implemented")
+
+  if args.optim.loss=='mse':
+      loss_function = mean_square_error_amplitdue_phase
+  elif args.optim.loss=='rmse':
+      loss_function = mean_absolute_error_amplitdue_phase
+  elif args.optim.loss=='psa':
+      loss_function = phase_sensitive_spectral_approximation_loss    
+  elif args.optim.loss=='psa_bose':
+      loss_function = phase_sensitive_spectral_approximation_loss_bose
+  else:
+      raise NotImplementedError(f"Optimizer {args.optim.optim} is not implemented")
+
+  metrics = [SpeechMetric(n_fft=args.dset.n_fft, hop_length=args.dset.hop_length, normalize=args.dset.fft_normalize, name=metric_name) for metric_name in args.model.metric]
+  metrics.append(CustomMetric(metric=args.optim.loss, name=args.optim.loss))
 
   model.compile(optimizer=optimizer, 
               loss= loss_function,
-              metrics=[
-              # keras.metrics.RootMeanSquaredError('rmse')
-              CustomMetric(metric=loss_function, args=args, name=args.optim.loss),
-              SpeechMetric(metric=SI_SDR, args=args, name='sisdr'),
-              # SpeechMetric(metric=WB_PESQ, name='wb_pesq'), # no utter weight overload -> [TODO] remove a slience in data using dB scale/ normalize fft
-              ])
-  return model
-
+              metrics=metrics
+              )

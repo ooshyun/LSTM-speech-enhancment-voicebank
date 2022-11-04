@@ -151,6 +151,16 @@ def train(args):
         raise ValueError("Model didn't implement...")
     model.summary()
 
+    if args.model.path is not None:
+        model = keras.models.load_model(os.path.join(args.model.path, "model"), compile=False)
+
+    if model_name == "cnn":
+        from model.cnn import compile_model
+        compile_model(model)
+    elif model_name == "lstm":
+        from model.lstm import compile_model
+        compile_model(model, args)    
+
     # You might need to install the following dependencies: sudo apt install python-pydot python-pydot-ng graphviz
     # tf.keras.utils.plot_model(model, show_shapes=True, dpi=64)
 
@@ -189,9 +199,9 @@ def train(args):
 
     # 7. Model Evaluate and save
     val_loss = model.evaluate(test_dataset)[0]
-    if val_loss < baseline_val_loss:
-        print("New model saved.")
-        keras.models.save_model(model, model_save_path, overwrite=True, include_optimizer=True)
+    # if val_loss < baseline_val_loss:
+    print("New model saved.")
+    keras.models.save_model(model, model_save_path, overwrite=True, include_optimizer=True)
 
     return save_path
 

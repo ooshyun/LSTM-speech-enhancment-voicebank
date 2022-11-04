@@ -125,10 +125,11 @@ def build_model(l2_strength, args):
   x = Conv2D(filters=1, kernel_size=[129,1], strides=[1, 1], padding='same')(x)
 
   model = Model(inputs=inputs, outputs=x)
+  return model
 
+def compile_model(model: Model):
   optimizer = keras.optimizers.Adam(3e-4)
   #optimizer = RAdam(total_steps=10000, warmup_proportion=0.1, min_lr=3e-4)
 
   model.compile(optimizer=optimizer, loss='mse', 
                 metrics=[keras.metrics.RootMeanSquaredError('rmse')])
-  return model
