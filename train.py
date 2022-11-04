@@ -19,8 +19,8 @@ from shutil import copyfile
 def train(args):
     # 1. Set Paramter
     device_lib.list_local_devices()
-    tf.random.set_seed(999)
-    np.random.seed(999)
+    tf.random.set_seed(args.seed)
+    np.random.seed(args.seed)
 
     model_name = args.model.name
     domain = args.dset.domain
@@ -31,10 +31,10 @@ def train(args):
     num_segments = args.dset.n_segment
 
     # 2. Load data
-    if args.dset.top_db > 96: # 16bit
-        path_to_dataset = f"{args.dset.save_path}_{args.model.name}_{args.dset.domain}"
+    if args.dset.top_db > args.dset.max_db: # 16bit
+        path_to_dataset = f"{args.dset.save_path}/records_{args.model.name}_{args.dset.domain}"
     else:
-        path_to_dataset = f"{args.dset.save_path}_{args.model.name}_{args.dset.domain}_{args.dset.top_db}topdb"
+        path_to_dataset = f"{args.dset.save_path}/records_{args.model.name}_{args.dset.domain}_{args.dset.top_db}topdb"
     
     # get training and validation tf record file names
     train_tfrecords_filenames = glob.glob(os.path.join(path_to_dataset, 'train_*'))

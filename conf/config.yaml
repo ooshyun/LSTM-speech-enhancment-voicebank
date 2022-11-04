@@ -25,12 +25,12 @@ dset:
   f_min: 125
   f_max: 8000
   channels: 1
-  top_db: 80
-  domain: 'time'
-  # domain: 'freq'
+  top_db: 100
+  # domain: 'time'
+  domain: 'freq'
   center: True
 
-  save_path: "./preprocess/data/"
+  save_path: "./preprocess/data"
   fft_normalize: True
   time_normalize: False
   max_db: 96
@@ -59,4 +59,4 @@ max_batches: 1024 # ?
 steps: 10
 epochs: 1
 folder: './result'
-debug: False
+debug: True
