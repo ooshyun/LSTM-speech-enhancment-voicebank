@@ -1,7 +1,8 @@
+import json
 import yaml
 import time
 import numpy as np
-import pickle
+import typing as tp
 import librosa
 # import sounddevice as sd
 import tensorflow as tf
@@ -227,3 +228,60 @@ def dict2obj(d):
         obj.__dict__[k] = dict2obj(d[k])
     return obj
    
+
+def load_json(path: str, *args, **kwargs) -> tp.Dict[str, list]:
+    """Tested at study/test_save_optimizer.py
+    """
+    with open(path, 'r') as tmp:
+        data: dict = json.load(tmp, *args, **kwargs)
+        for key, value in data.items():
+            if key == 'args':
+                continue
+            else:
+                for ival, val in enumerate(value):
+                    data[key][ival] = np.array(val, dtype=type(val) if not isinstance(val, list) else type(val[0]))
+    return data
+
+
+def save_json(data: tp.Dict[str, tp.List[np.ndarray]], path: str, *args, **kwargs):
+    """Tested at study/test_save_optimizer.py
+    """
+    for key, value in data.items():
+        if isinstance(value, Config):
+            data[key] = obj2dict(value)
+
+    with open(path, "w") as tmp:
+        json.dump(data, tmp, cls=NumpyEncoder, *args, **kwargs)
+
+def obj2dict(obj):
+    if not  hasattr(obj,"__dict__"):
+        return obj
+    result = {}
+    for key, val in obj.__dict__.items():
+        if key.startswith("_"):
+            continue
+        element = []
+        if isinstance(val, list):
+            for item in val:
+                element.append(obj2dict(item))
+        else:
+            element = obj2dict(val)
+        result[key] = element
+    return result
+
+class NumpyEncoder(json.JSONEncoder):
+    """ Special json encoder for numpy types 
+        Tested at study/test_save_optimizer.py
+        Reference. https://github.com/mpld3/mpld3/issues/434#issuecomment-340255689
+    """
+    def default(self, obj):
+        if isinstance(obj, (np.int_, np.intc, np.intp, np.int8,
+            np.int16, np.int32, np.int64, np.uint8,
+            np.uint16,np.uint32, np.uint64)):
+            return int(obj)
+        elif isinstance(obj, (np.float_, np.float16, np.float32, 
+            np.float64)):
+            return float(obj)
+        elif isinstance(obj,(np.ndarray,)): #### This is the fix
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)

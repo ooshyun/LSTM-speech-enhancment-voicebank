@@ -6,6 +6,6 @@
 !.gitignore
 !*.ipynb
 !*.pkl
-!model/
+!src/
 !conf/
 !test/

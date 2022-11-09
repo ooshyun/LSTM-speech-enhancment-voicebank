@@ -13,6 +13,9 @@ from keras import Model
 import keras.regularizers
 import keras.optimizers
 
+import os
+from .utils import load_json
+
 from .metrics import (
     SI_SDR,
     # WB_PESQ,
@@ -244,7 +247,11 @@ class CustomMetric(tf.keras.metrics.Metric):
         }
     )
     return config
-
+    
+  @classmethod
+  def from_config(cls, config):
+      return cls(**config)
+      
 class SpeechMetric(tf.keras.metrics.Metric):
   """        
     [V] SI_SDR,     pass, after function check, value check
@@ -317,6 +324,11 @@ class SpeechMetric(tf.keras.metrics.Metric):
     )
     return config
 
+  @classmethod
+  def from_config(cls, config):
+      return cls(**config)
+      
+
 def build_model_lstm(args, power=0.3):
   """
     Kernal Initialization
@@ -387,6 +399,23 @@ def compile_model(model:Model, args):
       loss_function = phase_sensitive_spectral_approximation_loss_bose
   else:
       raise NotImplementedError(f"Optimizer {args.optim.optim} is not implemented")
+
+  if args.model.path is not None:
+      tf.print("Optimizer Loading...")
+      dummpy_model = build_model_lstm(args)
+      optimizer_state = load_json(os.path.join(args.model.path, "optimizer/optim.json"))["optimizer"]
+      dummy_batch_size = 1
+      dummy_noise_tensor = tf.ones(shape=(dummy_batch_size, 2, 1, args.dset.n_segment, args.dset.n_feature))
+      dummy_clean_tensor = tf.ones(shape=(dummy_batch_size, 2, 1, args.dset.n_segment, args.dset.n_feature))
+      model.compile(optimizer=optimizer, 
+              loss= loss_function,
+              )
+      model.fit(x=dummy_noise_tensor, y=dummy_clean_tensor, batch_size=dummy_batch_size)
+
+      del dummpy_model, dummy_noise_tensor, dummy_clean_tensor   # [TODO] How to remove object and check it removed?
+      
+      optimizer.set_weights(optimizer_state)
+      tf.print("Optimizer was loaded!")
 
   metrics = [SpeechMetric(n_fft=args.dset.n_fft, hop_length=args.dset.hop_length, normalize=args.dset.fft_normalize, name=metric_name) for metric_name in args.model.metric]
   metrics.append(CustomMetric(metric=args.optim.loss, name=args.optim.loss))

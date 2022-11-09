@@ -6,9 +6,13 @@ from keras.layers import (
   ZeroPadding2D, 
   SpatialDropout2D,
 )
+import os
+from .utils import load_json
 from keras import Model
 import keras.regularizers
 import keras.optimizers
+
+import tensorflow as tf
 
 def conv_block(x, filters, kernel_size, strides, padding='same', use_bn=True):
   x = Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding=padding, use_bias=False,
@@ -127,9 +131,24 @@ def build_model(l2_strength, args):
   model = Model(inputs=inputs, outputs=x)
   return model
 
-def compile_model(model: Model):
+def compile_model(model: Model, args):
   optimizer = keras.optimizers.Adam(3e-4)
   #optimizer = RAdam(total_steps=10000, warmup_proportion=0.1, min_lr=3e-4)
+
+  if args.model.path is not None:
+      tf.print("Optimizer Loading...")
+      dummpy_model = build_model(args)
+      optimizer_state = load_json(os.path.join(args.model.path, "optimizer/optim.json"))["optimizer"]
+      dummy_batch_size = 1
+      dummy_noise_tensor = tf.ones(shape=(dummy_batch_size, args.dset.n_feature, args.dset.n_segment, 1))
+      dummy_clean_tensor = tf.ones(shape=(dummy_batch_size, args.dset.n_feature, 1, 1))
+      model.compile(optimizer=optimizer, 
+              loss= 'mse',
+              )
+      model.fit(x=dummy_noise_tensor, y=dummy_clean_tensor, batch_size=dummy_batch_size)
+      del dummpy_model, dummy_noise_tensor, dummy_clean_tensor   # [TODO] How to remove object and check it removed?
+      optimizer.set_weights(optimizer_state)
+      tf.print("Optimizer was loaded!")
 
   model.compile(optimizer=optimizer, loss='mse', 
                 metrics=[keras.metrics.RootMeanSquaredError('rmse')])

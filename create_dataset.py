@@ -4,7 +4,7 @@ from preprocess.datasetVoiceBankTime import DatasetVoiceBankTime
 import os
 import pickle
 import warnings
-from utils import load_yaml
+from src.utils import load_yaml
 
 warnings.filterwarnings(action='ignore')
 

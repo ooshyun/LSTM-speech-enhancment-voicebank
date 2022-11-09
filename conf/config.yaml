@@ -42,7 +42,10 @@ model:
   sample_rate: 16000
   lstm_layer: 256
   metric: ['sisdr']
-  path: './result/lstm/20221104-183812'
+  path:
+  path: './result/lstm/20221108-174727'
+  # path: './result/lstm/20221103-213029_topdb100_mae'
+  ckpt: 'checkpoint/model-01-0.0002.hdf5'
 
 optim:
   optim: 'adam'

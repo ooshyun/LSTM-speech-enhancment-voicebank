@@ -24,6 +24,8 @@ WARNING:absl:Found untraced functions such as lstm_cell_layer_call_fn, lstm_cell
 
 - Why the num of CNN eval data 4000 and the num of LSTM eval data 20 ?
 
+WARNING:absl:Found untraced functions such as lstm_cell_layer_call_fn, lstm_cell_layer_call_and_return_conditional_losses, lstm_cell_1_layer_call_fn, lstm_cell_1_layer_call_and_return_conditional_losses while saving (showing 4 of 4). These functions will not be directly callable after loading.
+
 - Refers 
     - Train and Validate: https://keras.io/examples/audio/transformer_asr/
     - Mel: https://keras.io/examples/audio/melgan_spectrogram_inversion/

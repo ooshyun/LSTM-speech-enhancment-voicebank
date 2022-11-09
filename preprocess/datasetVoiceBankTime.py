@@ -5,7 +5,7 @@ import math
 import multiprocessing
 import os
 from pathlib import Path
-from utils import get_tf_feature, read_audio, get_tf_feature_time
+from model.utils import get_tf_feature, read_audio, get_tf_feature_time
 import tensorflow as tf
 from sklearn.preprocessing import StandardScaler
 import logging

@@ -9,7 +9,7 @@ import tensorflow as tf
 
 import glob
 import numpy as np
-from utils import prepare_input_features, stft_tensorflow
+from model.utils import prepare_input_features, stft_tensorflow
 # Load the TensorBoard notebook extension.
 # %load_ext tensorboard
 

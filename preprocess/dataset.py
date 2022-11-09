@@ -2,10 +2,10 @@ import librosa
 import numpy as np
 import math
 from data_processing.feature_extractor import FeatureExtractor
-from utils import prepare_input_features
+from model.utils import prepare_input_features
 import multiprocessing
 import os
-from utils import get_tf_feature, read_audio
+from model.utils import get_tf_feature, read_audio
 import tensorflow as tf
 from sklearn.preprocessing import StandardScaler
 
