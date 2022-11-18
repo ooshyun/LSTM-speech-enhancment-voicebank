@@ -29,3 +29,10 @@ WARNING:absl:Found untraced functions such as lstm_cell_layer_call_fn, lstm_cell
 - Refers 
     - Train and Validate: https://keras.io/examples/audio/transformer_asr/
     - Mel: https://keras.io/examples/audio/melgan_spectrogram_inversion/
+
+- conf: configuration file
+- history: previous files
+- preprocess: preprocess dataset
+- result: saved model
+- logs: tensorboard
+- test: test functionality

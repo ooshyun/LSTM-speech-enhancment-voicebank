@@ -142,11 +142,11 @@ def compile_model(model: Model, args):
       dummy_batch_size = 1
       dummy_noise_tensor = tf.ones(shape=(dummy_batch_size, args.dset.n_feature, args.dset.n_segment, 1))
       dummy_clean_tensor = tf.ones(shape=(dummy_batch_size, args.dset.n_feature, 1, 1))
-      model.compile(optimizer=optimizer, 
+      dummpy_model.compile(optimizer=optimizer, 
               loss= 'mse',
               )
-      model.fit(x=dummy_noise_tensor, y=dummy_clean_tensor, batch_size=dummy_batch_size)
-      del dummpy_model, dummy_noise_tensor, dummy_clean_tensor   # [TODO] How to remove object and check it removed?
+      dummpy_model.fit(x=dummy_noise_tensor, y=dummy_clean_tensor, batch_size=dummy_batch_size)
+      del dummpy_model, dummpy_model, dummy_noise_tensor, dummy_clean_tensor   # [TODO] How to remove object and check it removed?
       optimizer.set_weights(optimizer_state)
       tf.print("Optimizer was loaded!")
 

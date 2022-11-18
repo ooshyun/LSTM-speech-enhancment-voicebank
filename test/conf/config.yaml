@@ -15,32 +15,36 @@ dset:
   hop_length: 256
   n_feature: 257
   n_segment: 64 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
+  # cnn model
+  # n_fft: 256
+  # win_length: 256
+  # hop_length: 128
+  # n_feature: 129 
+  # n_segment: 8 
   n_mels: 128
   f_min: 125
   f_max: 8000
   channels: 1
   top_db: 100
-  fft: True
+  domain: 'time'
+  # domain: 'freq'
   center: True
+
   save_path: "./preprocess/data"
   fft_normalize: True
-  normalize: 'none'
-  # normalize: 'min-max'
-  # normalize: 'z-score'
+  time_normalize: False
   max_db: 96
-  pad: True
   
 
 model:
   name: 'lstm'
+  # name: 'cnn'
   sample_rate: 16000
   lstm_layer: 256
   metric: ['sisdr']
   path:
+  path: './test/result/test_model'
   ckpt:
-  # path: './result/lstm/20221108-174727'
-  # path: './result/lstm/20221103-213029_topdb100_mae'
-  # ckpt: 'checkpoint/model-01-0.0002.hdf5'
 
 optim:
   optim: 'adam'
@@ -54,7 +58,8 @@ optim:
 
 seed: 10
 batch_size: 512
+max_batches: 1024 # ?
 steps: 10
 epochs: 1
 folder: './result'
-debug:
+debug: True

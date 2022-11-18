@@ -5,6 +5,9 @@ import numpy as np
 import typing as tp
 import librosa
 # import sounddevice as sd
+# import julius # for pytorch
+from resampy import resample
+import soundfile as sf
 import tensorflow as tf
 
 
@@ -46,12 +49,15 @@ def add_noise_to_clean_audio(clean_audio, noise_signal):
     noisyAudio = clean_audio + np.sqrt(speech_power / noise_power) * noiseSegment
     return noisyAudio
 
-def read_audio(filepath, sample_rate, normalize=True):
-    audio, sr = librosa.load(filepath, sr=sample_rate)
-    if normalize is True:
-        div_fac = 1 / np.max(np.abs(audio)) / 3.0
-        audio = audio * div_fac
-        # audio = librosa.util.normalize(audio)
+def read_audio(filepath, sample_rate):
+    # audio, sr = librosa.load(filepath, sr=sample_rate)
+    # if normalize is True:
+    #     div_fac = 1 / np.max(np.abs(audio)) / 3.0
+    #     audio = audio * div_fac
+    #     # audio = librosa.util.normalize(audio)
+    audio, sr = sf.read(filepath)
+    audio = resample(audio, sr, sample_rate)
+
     return audio, sr
 
 
@@ -106,7 +112,7 @@ def get_tf_feature(noise_stft_mag_features, clean_stft_magnitude, noise_stft_pha
     return example
 
 
-def get_tf_feature_custom(noisy_stft_magnitude, clean_stft_magnitude, noise_stft_phase, clean_stft_phase):
+def get_tf_feature_mag_phase_pair(noisy_stft_magnitude, clean_stft_magnitude, noise_stft_phase, clean_stft_phase):
     noisy_stft_magnitude = noisy_stft_magnitude.astype(np.float32).tostring()
     clean_stft_magnitude = clean_stft_magnitude.astype(np.float32).tostring()
     noise_stft_phase = noise_stft_phase.astype(np.float32).tostring()
@@ -120,7 +126,7 @@ def get_tf_feature_custom(noisy_stft_magnitude, clean_stft_magnitude, noise_stft
         }))
     return example
 
-def get_tf_feature_time(noisy, clean):
+def get_tf_feature_sample_pair(noisy, clean):
     noisy = noisy.astype(np.float32).tostring()
     clean = clean.astype(np.float32).tostring()
 
@@ -285,3 +291,33 @@ class NumpyEncoder(json.JSONEncoder):
         elif isinstance(obj,(np.ndarray,)): #### This is the fix
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
+
+def segment_audio(audio, sample_rate, segment):
+    # sec
+    length_audio = audio.shape[-1]
+    num_sample_segment = int(segment*sample_rate)
+    nsegment = length_audio//num_sample_segment
+
+    if length_audio/sample_rate < segment:
+        audio = np.pad(audio, ((0, 0), (0, num_sample_segment-length_audio)), 'constant')
+    elif length_audio % num_sample_segment != 0:
+        audio = audio[:nsegment*num_sample_segment]
+    
+    newshape = list(audio.shape)
+    if len(newshape) == 1:
+        newshape = [nsegment, num_sample_segment]
+    else:
+        newshape = [audio.shape[:-1]]+[nsegment, num_sample_segment]
+    audio = np.reshape(audio, newshape=newshape) # ..., segment, samples
+
+    audio_segments = None
+    for isegment in range(audio.shape[-2]):
+        if audio_segments is None:
+            audio_segments = audio[..., isegment, :]
+        else:
+            if audio_segments.shape != audio[..., isegment, :].shape:
+                buf_audio_segment = np.expand_dims(audio[..., isegment, :], axis=0)
+                audio_segments = np.concatenate([audio_segments, buf_audio_segment], axis=0)
+            else:
+                audio_segments = np.stack([audio_segments, audio[..., isegment, :]], axis=0)
+    return audio

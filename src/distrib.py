@@ -1,12 +1,67 @@
 import os
-from .utils import stft_tensorflow
-import numpy as np
 import glob
+from pathlib import Path
+from datetime import datetime
+import numpy as np
+
 import tensorflow as tf
+import keras.callbacks
+import keras.models
+
+from .utils import save_json, stft_tensorflow, TimeHistory
+
+def save_model_all(path, model: keras.models.Model):
+    model_save_path = os.path.join(path, "model")
+    optimizer_save_path = os.path.join(path, "optimizer")
+    
+    keras.models.save_model(model, model_save_path, overwrite=True, include_optimizer=True)
+    optimizer_save_path = Path(optimizer_save_path)
+    if not optimizer_save_path.is_dir():
+        optimizer_save_path.mkdir()
+    optimizer_save_path = optimizer_save_path / "optim.json"
+    save_json({"optimizer":model.optimizer.get_weights()}, optimizer_save_path)
+
+
+def load_callback(path, args):
+    checkpoint_save_path = os.path.join(path, "checkpoint/checkpoint-{epoch:02d}-{val_loss:.9f}.hdf5")
+    console_log_save_path = os.path.join(path, "debug.txt")
+
+    early_stopping_callback = keras.callbacks.EarlyStopping(monitor='val_loss', patience=50, restore_best_weights=True, baseline=None)
+    logdir = os.path.join(f"./logs/{args.model.name}", datetime.now().strftime("%Y%m%d-%H%M%S"))
+    tensorboard_callback = keras.callbacks.TensorBoard(logdir, update_freq='batch', histogram_freq=1, write_graph=True)
+    checkpoint_callback = keras.callbacks.ModelCheckpoint(filepath=checkpoint_save_path, 
+                                                            test='val_loss', save_best_only=True)
+    time_callback = TimeHistory(filepath=console_log_save_path)
+    # histogram_freq=0, write_graph=True: for monitoring the weight histogram
+
+    return [early_stopping_callback, tensorboard_callback, checkpoint_callback, time_callback]
+    
+def load_model(args):
+    model_name = args.model.name
+
+    if model_name == "lstm":
+        from .lstm import build_model_lstm
+        model = build_model_lstm(args)
+    else:
+        raise ValueError("Model didn't implement...")
+    model.summary()
+
+    if args.model.path is not None:
+        if args.model.ckpt:
+            model.load_weights(os.path.join(args.model.path, args.model.ckpt))
+        else:
+            model=keras.models.load_model(os.path.join(args.model.path, "model"), compile=False)
+
+    if model_name == "lstm":
+        from .lstm import compile_model
+        compile_model(model, args)    
+
+    return model
+
 
 def load_dataset(args):
     model_name = args.model.name
-    domain = args.dset.domain
+    flag_fft = args.dset.fft
     nfft = args.dset.n_fft
     hop_length = args.dset.hop_length
     center = args.dset.center
@@ -14,10 +69,10 @@ def load_dataset(args):
     num_segments = args.dset.n_segment
 
     # 2. Load data
-    if args.dset.top_db > args.dset.max_db: # 16bit
-        path_to_dataset = f"{args.dset.save_path}/records_{args.model.name}_{args.dset.domain}"
+    if args.debug:
+        path_to_dataset = f"{args.dset.save_path}/records_{args.model.name}_norm_{args.dset.normalize}_fft_{args.dset.fft}_topdb_{args.dset.top_db}_debug"
     else:
-        path_to_dataset = f"{args.dset.save_path}/records_{args.model.name}_{args.dset.domain}_{args.dset.top_db}topdb"
+        path_to_dataset = f"{args.dset.save_path}/records_{args.model.name}_norm_{args.dset.normalize}_fft_{args.dset.fft}_topdb_{args.dset.top_db}"
     
     # get training and validation tf record file names
     train_tfrecords_filenames = glob.glob(os.path.join(path_to_dataset, 'train_*'))
@@ -30,33 +85,8 @@ def load_dataset(args):
     print("Validation file names: ", val_tfrecords_filenames)
 
     def tf_record_parser(record):
-        if model_name == "cnn":
-            if domain == 'freq': 
-                keys_to_features = {
-                "noise_stft_phase": tf.io.FixedLenFeature((), tf.string, default_value=""),
-                'noise_stft_mag_features': tf.io.FixedLenFeature([], tf.string),
-                "clean_stft_magnitude": tf.io.FixedLenFeature((), tf.string)
-                }
-                features = tf.io.parse_single_example(record, keys_to_features)
-
-                noise_stft_mag_features = tf.io.decode_raw(features['noise_stft_mag_features'], tf.float32)
-                clean_stft_magnitude = tf.io.decode_raw(features['clean_stft_magnitude'], tf.float32)
-                noise_stft_phase = tf.io.decode_raw(features['noise_stft_phase'], tf.float32)
-                # when getting data from tfrecords, it need to transfer tensorflow api such as reshape
-
-                # reshape input and annotation images, cnn
-                noise_stft_mag_features = tf.reshape(noise_stft_mag_features, (num_features, num_segments, 1), name="noise_stft_mag_features")
-                clean_stft_magnitude = tf.reshape(clean_stft_magnitude, (num_features, 1, 1), name="clean_stft_magnitude") # [TODO] Check
-                noise_stft_phase = tf.reshape(noise_stft_phase, (num_features,), name="noise_stft_phase")
-
-                return noise_stft_mag_features , clean_stft_magnitude
-            elif domain == 'time':
-                NotImplementedError("cnn model is not implemented for time domain")
-            else:
-                NotImplementedError("dataset domain is incorrect")
-                        
-        elif model_name == 'lstm':
-            if domain == 'freq':          
+        if model_name == 'lstm':
+            if flag_fft:          
                 keys_to_features = {
                     "noisy_stft_magnitude": tf.io.FixedLenFeature([], tf.string, default_value=""),
                     "clean_stft_magnitude": tf.io.FixedLenFeature((), tf.string),     
@@ -69,7 +99,7 @@ def load_dataset(args):
                 clean_stft_magnitude = tf.io.decode_raw(features['clean_stft_magnitude'], tf.float32)
                 noise_stft_phase = tf.io.decode_raw(features['noise_stft_phase'], tf.float32)
                 clean_stft_phase = tf.io.decode_raw(features['clean_stft_phase'], tf.float32)            
-            elif domain == 'time':    
+            else:   
                 keys_to_features = {
                 "noisy": tf.io.FixedLenFeature((), tf.string, default_value=""),
                 'clean': tf.io.FixedLenFeature([], tf.string),
@@ -88,8 +118,6 @@ def load_dataset(args):
                                                                                                         nfft=nfft, 
                                                                                                         hop_length=hop_length,
                                                                                                         center=center)
-            else:
-                NotImplementedError("dataset domain is incorrect")
 
             def scaling(x, normalize):
                 if normalize:
@@ -122,3 +150,5 @@ def load_dataset(args):
     test_dataset = test_dataset.map(tf_record_parser)
     test_dataset = test_dataset.repeat(1)
     test_dataset = test_dataset.batch(args.batch_size)
+
+    return train_dataset, test_dataset
