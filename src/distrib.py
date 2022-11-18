@@ -67,6 +67,7 @@ def load_dataset(args):
     center = args.dset.center
     num_features = args.dset.n_feature
     num_segments = args.dset.n_segment
+    fft_normalize = args.dset.fft_normalize
 
     # 2. Load data
     if args.debug:
@@ -119,15 +120,8 @@ def load_dataset(args):
                                                                                                         hop_length=hop_length,
                                                                                                         center=center)
 
-            def scaling(x, normalize):
-                if normalize:
-                    scale_factor = (num_features-1)*2
-                else:
-                    scale_factor = 1
-                return x/scale_factor
-
-            noise_stft_magnitude = tf.reshape(scaling(noise_stft_magnitude, args.dset.fft_normalize), (1, num_segments, num_features), name="noise_stft_magnitude")
-            clean_stft_magnitude = tf.reshape(scaling(clean_stft_magnitude, args.dset.fft_normalize), (1, num_segments, num_features), name="clean_stft_magnitude")
+            noise_stft_magnitude = tf.reshape(noise_stft_magnitude, (1, num_segments, num_features), name="noise_stft_magnitude")
+            clean_stft_magnitude = tf.reshape(clean_stft_magnitude, (1, num_segments, num_features), name="clean_stft_magnitude")
             noise_stft_phase = tf.reshape(noise_stft_phase, (1, num_segments, num_features), name="noise_stft_phase")
             clean_stft_phase = tf.reshape(clean_stft_phase, (1, num_segments, num_features), name="clean_stft_phase")
 
@@ -144,11 +138,17 @@ def load_dataset(args):
     train_dataset = train_dataset.repeat()
     train_dataset = train_dataset.batch(args.batch_size)
     train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    # DataLossError (see above for traceback): corrupted record at 1261886956
+    # node IteratorGetNext
+    # Shape/_6
+    # https://github.com/tensorflow/tensorflow/issues/13463
+    train_dataset = train_dataset.apply(tf.data.experimental.ignore_errors())
 
     # val_dataset
     test_dataset = tf.data.TFRecordDataset([val_tfrecords_filenames])
     test_dataset = test_dataset.map(tf_record_parser)
     test_dataset = test_dataset.repeat(1)
     test_dataset = test_dataset.batch(args.batch_size)
+    test_dataset = test_dataset.apply(tf.data.experimental.ignore_errors())
 
     return train_dataset, test_dataset
