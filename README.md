@@ -36,3 +36,6 @@ WARNING:absl:Found untraced functions such as lstm_cell_layer_call_fn, lstm_cell
 - result: saved model
 - logs: tensorboard
 - test: test functionality
+
+- library
+    - scipy 1.8.1

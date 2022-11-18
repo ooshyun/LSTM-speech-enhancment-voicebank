@@ -125,9 +125,9 @@ class DatasetVoiceBank:
 
         # p = multiprocessing.Pool(multiprocessing.cpu_count())
         if self.debug:
-            folder = Path(f"{root}/records_{self.model_name}_norm_{self.args.normalize}_fft_{self.args.fft}_topdB_{self.args.top_db}_debug")
+            folder = Path(f"{root}/records_{self.model_name}_train_{int(self.args.split*100)}_norm_{self.args.normalize}_fft_{self.args.fft}_topdB_{self.args.top_db}_debug")
         else:
-            folder = Path(f"{root}/records_{self.model_name}_norm_{self.args.normalize}_fft_{self.args.fft}_topdB_{self.args.top_db}")
+            folder = Path(f"{root}/records_{self.model_name}_train_{int(self.args.split*100)}_norm_{self.args.normalize}_fft_{self.args.fft}_topdB_{self.args.top_db}")
 
         if not folder.is_dir():
             folder.mkdir()

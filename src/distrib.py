@@ -70,9 +70,9 @@ def load_dataset(args):
 
     # 2. Load data
     if args.debug:
-        path_to_dataset = f"{args.dset.save_path}/records_{args.model.name}_norm_{args.dset.normalize}_fft_{args.dset.fft}_topdb_{args.dset.top_db}_debug"
+        path_to_dataset = f"{args.dset.save_path}/records_{args.model.name}_train_{int(args.dset.split*100)}_norm_{args.dset.normalize}_fft_{args.dset.fft}_topdb_{args.dset.top_db}_debug"
     else:
-        path_to_dataset = f"{args.dset.save_path}/records_{args.model.name}_norm_{args.dset.normalize}_fft_{args.dset.fft}_topdb_{args.dset.top_db}"
+        path_to_dataset = f"{args.dset.save_path}/records_{args.model.name}_train_{int(args.dset.split*100)}_norm_{args.dset.normalize}_fft_{args.dset.fft}_topdb_{args.dset.top_db}"
     
     # get training and validation tf record file names
     train_tfrecords_filenames = glob.glob(os.path.join(path_to_dataset, 'train_*'))
