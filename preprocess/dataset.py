@@ -21,12 +21,12 @@ import logging
 import tqdm
 
 class DatasetVoiceBank:
-    def __init__(self, clean_filenames, noisy_filenames, name, args):
+    def __init__(self, clean_filenames, noisy_filenames, name, args, debug=False):
         self.clean_filenames = clean_filenames
         self.noisy_filenames = noisy_filenames
         self.model_name = name
         self.args = args
-        self.debug = True
+        self.debug = debug
 
     def _sample_noisy_filename(self):
         return np.random.choice(self.noisy_filenames)

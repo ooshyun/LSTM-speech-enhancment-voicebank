@@ -26,14 +26,14 @@ def preprocess_data(args):
 
     if args.model.name == "lstm":
         if args.dset.fft:
-            train_dataset = DatasetVoiceBank(clean_train_filenames, noisy_train_filenames, args.model.name, args.dset)
+            train_dataset = DatasetVoiceBank(clean_train_filenames, noisy_train_filenames, args.model.name, args.dset, args.debug)
             train_dataset.create_tf_record(prefix='train', subset_size=subset_size_train)
-            val_dataset = DatasetVoiceBank(clean_val_filenames, noisy_val_filenames, args.model.name, args.dset)
+            val_dataset = DatasetVoiceBank(clean_val_filenames, noisy_val_filenames, args.model.name, args.dset, args.debug)
             val_dataset.create_tf_record(prefix='val', subset_size=subset_size_valid)
         else:
-            train_dataset = DatasetVoiceBank(clean_train_filenames, noisy_train_filenames, args.model.name, args.dset)
+            train_dataset = DatasetVoiceBank(clean_train_filenames, noisy_train_filenames, args.model.name, args.dset, args.debug)
             train_dataset.create_tf_record(prefix='train', subset_size=subset_size_train)
-            val_dataset = DatasetVoiceBank(clean_val_filenames, noisy_val_filenames, args.model.name, args.dset)
+            val_dataset = DatasetVoiceBank(clean_val_filenames, noisy_val_filenames, args.model.name, args.dset, args.debug)
             val_dataset.create_tf_record(prefix='val', subset_size=subset_size_valid)
     else:
         raise NotImplementedError("There's no implementation, ", args.model.name)
