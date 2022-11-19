@@ -287,7 +287,7 @@ class SpeechMetric(tf.keras.metrics.Metric):
 
     # related with preprocess normalized fft 
     if self.normalize:
-      reference_stft_librosa *= 2*(reference_stft_librosa.shape[-1]-1)
+      reference_stft_librosa *= 2*(reference_stft_librosa.shape[-1]-1) # [TODO] verfication
       estimation_stft_librosa *= 2*(reference_stft_librosa.shape[-1]-1)
         
     window_fn = tf.signal.hamming_window
@@ -340,8 +340,10 @@ def build_model_lstm(args, power=0.3):
 
   # inputs_amp = tf.math.sqrt(tf.math.pow(tf.math.abs(inputs[...,0, :, :, :]), 2)+tf.math.pow(tf.math.abs(inputs[...,1, :, :, :]), 2))
   inputs_amp = inputs[..., 0, :, :, :]
-  if args.dset.fft_normalize:
-        inputs_amp = tf.math.divide(inputs_amp, (args.dset.n_feature-1)*2)
+
+  # if args.dset.fft_normalize:
+  #       inputs_amp = tf.math.divide(inputs_amp, (args.dset.n_feature-1)*2)
+
   inputs_phase = inputs[..., 1, :, :, :]
  
   mask = tf.squeeze(inputs_amp, axis=1) # merge channel

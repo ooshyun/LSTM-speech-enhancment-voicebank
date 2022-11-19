@@ -26,7 +26,7 @@ class DatasetVoiceBank:
         self.noisy_filenames = noisy_filenames
         self.model_name = name
         self.args = args
-        self.debug = False
+        self.debug = True
 
     def _sample_noisy_filename(self):
         return np.random.choice(self.noisy_filenames)
@@ -124,10 +124,17 @@ class DatasetVoiceBank:
         root = self.args.save_path
 
         # p = multiprocessing.Pool(multiprocessing.cpu_count())
+        print("DEBUG", self.args.fft_normalize)
         if self.debug:
-            folder = Path(f"{root}/records_{self.model_name}_train_{int(self.args.split*100)}_norm_{self.args.normalize}_fft_{self.args.fft}_topdB_{self.args.top_db}_debug")
+            if self.args.fft_normalize:
+                folder = Path(f"{root}/records_{self.model_name}_train_{int(self.args.split*100)}_norm_{self.args.normalize}_fft_{self.args.fft}_norm_topdB_{self.args.top_db}_debug")
+            else:
+                folder = Path(f"{root}/records_{self.model_name}_train_{int(self.args.split*100)}_norm_{self.args.normalize}_fft_{self.args.fft}_topdB_{self.args.top_db}_debug")
         else:
-            folder = Path(f"{root}/records_{self.model_name}_train_{int(self.args.split*100)}_norm_{self.args.normalize}_fft_{self.args.fft}_topdB_{self.args.top_db}")
+            if self.args.fft_normalize:
+                folder = Path(f"{root}/records_{self.model_name}_train_{int(self.args.split*100)}_norm_{self.args.normalize}_fft_{self.args.fft}_norm_topdB_{self.args.top_db}")
+            else:
+                folder = Path(f"{root}/records_{self.model_name}_train_{int(self.args.split*100)}_norm_{self.args.normalize}_fft_{self.args.fft}_topdB_{self.args.top_db}")
 
         if not folder.is_dir():
             folder.mkdir()
@@ -173,6 +180,7 @@ class DatasetVoiceBank:
                     # noisy_stft_imag = o[6]
                     # clean_stft_imag = o[7]
                     if self.debug:
+                        print("  Getting from preprocess")
                         print("[DEBUG]: ", noisy_stft_magnitude.shape, noisy_stft_phase.shape, clean_stft_magnitude.shape, clean_stft_phase.shape)
                         print("[DEBUG]: ", noisy_stft_magnitude.dtype, noisy_stft_phase.dtype, clean_stft_magnitude.dtype, clean_stft_phase.dtype)
                         print("---")
@@ -184,16 +192,28 @@ class DatasetVoiceBank:
                     clean_stft_magnitude = np.transpose(clean_stft_magnitude, axes=new_axes)
                     noisy_stft_phase = np.transpose(noisy_stft_phase, axes=new_axes)
                     clean_stft_phase = np.transpose(clean_stft_phase, axes=new_axes) # segment, ch, frame, freqeuncy
+                    if self.args.fft_normalize:
+                        noisy_stft_magnitude /= (self.args.n_feature-1)*2
+                        clean_stft_magnitude /= (self.args.n_feature-1)*2 
 
                     if self.debug:
+                        print(" Segmentation")
                         print("[DEBUG]: ", noisy_stft_magnitude.shape, noisy_stft_phase.shape, clean_stft_magnitude.shape, clean_stft_phase.shape)
                         print("[DEBUG]: ", noisy_stft_magnitude.dtype, noisy_stft_phase.dtype, clean_stft_magnitude.dtype, clean_stft_phase.dtype)
+                        print("---")
 
                     for noise_mag, clean_mag, noisy_phase, clean_phase in zip(noisy_stft_magnitude, clean_stft_magnitude, noisy_stft_phase, clean_stft_phase):
                         noise_mag = np.expand_dims(noise_mag, axis=0)  # 1, ch, frame, freqeuncy
                         clean_mag = np.expand_dims(clean_mag, axis=0)
                         noisy_phase = np.expand_dims(noisy_phase, axis=0)
                         clean_phase = np.expand_dims(clean_phase, axis=0)
+
+                        if self.debug:
+                            print("  Write Down to tfrecord")
+                            print("[DEBUG]: ", noise_mag.shape, noisy_phase.shape, clean_mag.shape, clean_phase.shape)
+                            print("[DEBUG]: ", noise_mag.dtype, noisy_phase.dtype, clean_mag.dtype, clean_phase.dtype)
+                            print("---")
+        
                         example = get_tf_feature_mag_phase_pair(noise_mag, clean_mag, noisy_phase, clean_phase)
                         writer.write(example.SerializeToString())    
                 else:
