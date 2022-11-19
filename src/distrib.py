@@ -71,14 +71,14 @@ def load_dataset(args):
     # 2. Load data
     if args.debug:
         if args.dset.fft_normalize:
-            path_to_dataset = Path(f"{args.dset.save_path}/records_{args.dset.model_name}_train_{int(args.dset.split*100)}_norm_{args.dset.normalize}_fft_{args.dset.fft}_norm_topdB_{args.dset.top_db}_debug")
+            path_to_dataset = Path(f"{args.dset.save_path}/records_{model_name}_train_{int(args.dset.split*100)}_norm_{args.dset.normalize}_fft_{args.dset.fft}_norm_topdB_{args.dset.top_db}_debug")
         else:
-            path_to_dataset = Path(f"{args.dset.save_path}/records_{args.model.name}_train_{int(args.dset.split*100)}_norm_{args.dset.normalize}_fft_{args.dset.fft}_topdB_{args.dset.top_db}_debug")
+            path_to_dataset = Path(f"{args.dset.save_path}/records_{model_name}_train_{int(args.dset.split*100)}_norm_{args.dset.normalize}_fft_{args.dset.fft}_topdB_{args.dset.top_db}_debug")
     else:
         if args.dset.fft_normalize:
-            path_to_dataset = Path(f"{args.dset.save_path}/records_{args.dset.model_name}_train_{int(args.dset.split*100)}_norm_{args.dset.normalize}_fft_{args.dset.fft}_norm_topdB_{args.dset.top_db}")
+            path_to_dataset = Path(f"{args.dset.save_path}/records_{model_name}_train_{int(args.dset.split*100)}_norm_{args.dset.normalize}_fft_{args.dset.fft}_norm_topdB_{args.dset.top_db}")
         else:
-            path_to_dataset = Path(f"{args.dset.save_path}/records_{args.dset.model_name}_train_{int(args.dset.split*100)}_norm_{args.dset.normalize}_fft_{args.dset.fft}_topdB_{args.dset.top_db}")
+            path_to_dataset = Path(f"{args.dset.save_path}/records_{model_name}_train_{int(args.dset.split*100)}_norm_{args.dset.normalize}_fft_{args.dset.fft}_topdB_{args.dset.top_db}")
 
     # get training and validation tf record file names
     train_tfrecords_filenames = glob.glob(os.path.join(path_to_dataset, 'train_*'))
