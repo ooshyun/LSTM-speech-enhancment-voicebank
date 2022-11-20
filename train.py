@@ -17,6 +17,11 @@ from src.utils import load_yaml
 def train(args):
     # 1. Set Paramter
     device_lib.list_local_devices()
+    
+    print("  Train Parameter")
+    print(args)
+    print("------")
+
     tf.random.set_seed(args.seed)
     np.random.seed(args.seed)
 
