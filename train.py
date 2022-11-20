@@ -12,14 +12,15 @@ from tensorflow.python.client import device_lib
 
 # custom api
 from src.distrib import load_dataset, load_model, load_callback
-from src.utils import load_yaml
+from src.utils import load_yaml, obj2dict
 
 def train(args):
     # 1. Set Paramter
     device_lib.list_local_devices()
     
     print("  Train Parameter")
-    print(args)
+    args_dict = obj2dict(args)
+    print(args_dict)
     print("------")
 
     tf.random.set_seed(args.seed)
