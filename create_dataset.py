@@ -39,7 +39,7 @@ def preprocess_data(args):
         raise NotImplementedError("There's no implementation, ", args.model.name)
 
 if __name__=="__main__":
-  path_conf = "./conf/config.yaml"
+  path_conf = "./conf/config_preprocess.yaml"
   config = load_yaml(path_conf)
   preprocess_data(config)
 
