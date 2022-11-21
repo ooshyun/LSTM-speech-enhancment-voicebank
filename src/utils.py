@@ -89,7 +89,6 @@ def _bytes_feature(value):
         value = value.numpy()  # BytesList won't unpack a string from an EagerTensor.
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
-
 def _float_feature(value):
     """Returns a float_list from a float / double."""
     return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
@@ -123,7 +122,10 @@ def get_tf_feature_mag_phase_pair(noisy_stft_magnitude, clean_stft_magnitude, no
         'clean_stft_magnitude': _bytes_feature(clean_stft_magnitude),
         'noise_stft_phase': _bytes_feature(noise_stft_phase),
         'clean_stft_phase': _bytes_feature(clean_stft_phase),
+        'name': _bytes_feature(u"Hello?".encode('utf-8')),
         }))
+    # print(_bytes_feature(b'test_string'))
+    # print(_bytes_feature(u'test_bytes'.encode('utf-8')))
     return example
 
 def get_tf_feature_sample_pair(noisy, clean):
@@ -291,6 +293,78 @@ class NumpyEncoder(json.JSONEncoder):
         elif isinstance(obj,(np.ndarray,)): #### This is the fix
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
+
+def prevent_clip(wav, mode='rescale'):
+    """
+    different strategies for avoiding raw clipping.
+    """
+    assert wav.dtype.is_floating_point, "too late for clipping"
+    if mode == 'rescale':
+        wav = wav / max(1.01 * np.max(np.abs(wav)), 1)
+    elif mode == 'clamp':
+        wav = np.clip(wav,a_min=-0.99, a_max=0.99)
+    elif mode == 'tanh':
+        wav = np.tanh(wav)
+    else:
+        raise ValueError(f"Invalid mode {mode}")
+    return wav
+
+def encode_normalize(wav, normalize, metadata=None):
+    """
+    Refernence. https://developers.google.com/machine-learning/data-prep/transform/normalization
+    """
+    eps=1e-6
+    if metadata is None:
+        if normalize == 'z-score':
+            mean = np.expand_dims(np.mean(wav, axis=-1), axis=-1)
+            std = np.expand_dims(np.std(wav, axis=-1), axis=-1)
+            wav = (wav-mean)/(std+eps)
+        elif normalize == 'min-max': # linear-scale'
+            min = np.expand_dims(np.min(wav, axis=-1), axis=-1)
+            max = np.expand_dims(np.max(wav, axis=-1), axis=-1)
+            wav = (wav-min)/(max-min+eps)
+        elif normalize == 'log-scale':
+            wav = np.log(np.abs(wav)+eps)
+        elif normalize == 'clip':
+            NotImplementedError
+        elif normalize == 'none':
+            pass
+        else:
+            raise ValueError(f"Invalid normalize method: {normalize}")
+        return wav
+    else:
+        return encode_normalize_with_metadata(wav, normalize, metadata)
+
+def encode_normalize_with_metadata(wav, normalize, metadata):
+    if normalize == 'z-score':
+        wav = (wav - metadata['mean']) / (metadata['std'])
+    elif normalize == 'linear-scale':
+        wav = (wav - metadata['min']) / (metadata['max'] - metadata['min'])
+    elif normalize == 'clip':
+        NotImplementedError
+    elif normalize == 'log-scale':
+        NotImplementedError
+    else:
+        raise ValueError(f"Invalid normalize method: {normalize}")
+    return wav
+
+def decode_normalize(wav, normalize, metadata):
+    """
+    Refernence. https://developers.google.com/machine-learning/data-prep/transform/normalization
+    """
+    if normalize == 'z-score':
+        wav = wav*metadata['std'] + metadata['mean']
+    elif normalize == 'linear-scale':
+        wav = wav * (metadata['max'] - metadata['min']) + metadata['min']
+    elif normalize == 'clip':
+        NotImplementedError
+    elif normalize == 'log-scale':
+        NotImplementedError
+    elif normalize == 'none':
+        pass
+    else:
+        raise ValueError(f"Invalid normalize method: {normalize}")
+    return wav
 
 def segment_audio(audio, sample_rate, segment):
     # sec

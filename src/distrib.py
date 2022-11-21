@@ -61,25 +61,33 @@ def load_model(args):
 
 def load_dataset(args):
     model_name = args.model.name
+    save_path = args.dset.save_path
     flag_fft = args.dset.fft
     nfft = args.dset.n_fft
     hop_length = args.dset.hop_length
     center = args.dset.center
     num_features = args.dset.n_feature
     num_segments = args.dset.n_segment
+    normalization = args.dset.normalize
+    fft_normalization = args.dset.fft_normalize
+    top_db = args.dset.top_db
+    train_split = int(args.dset.split*100)
+
+    if args.dset.segment_normalization:
+        seg_normalization = args.dset.segment_normalization
+    else:
+        seg_normalization = False
 
     # 2. Load data
-    if args.debug:
-        if args.dset.fft_normalize:
-            path_to_dataset = Path(f"{args.dset.save_path}/records_{model_name}_train_{int(args.dset.split*100)}_norm_{args.dset.normalize}_fft_{args.dset.fft}_norm_topdB_{args.dset.top_db}_debug")
-        else:
-            path_to_dataset = Path(f"{args.dset.save_path}/records_{model_name}_train_{int(args.dset.split*100)}_norm_{args.dset.normalize}_fft_{args.dset.fft}_topdB_{args.dset.top_db}_debug")
+    path_to_dataset = f"{save_path}/records_{model_name}_train_{train_split}_norm_{normalization}_segNorm_{seg_normalization}_fft_{flag_fft}"
+    if fft_normalization:
+        path_to_dataset = path_to_dataset + f"_norm_topdB_{top_db}"
     else:
-        if args.dset.fft_normalize:
-            path_to_dataset = Path(f"{args.dset.save_path}/records_{model_name}_train_{int(args.dset.split*100)}_norm_{args.dset.normalize}_fft_{args.dset.fft}_norm_topdB_{args.dset.top_db}")
-        else:
-            path_to_dataset = Path(f"{args.dset.save_path}/records_{model_name}_train_{int(args.dset.split*100)}_norm_{args.dset.normalize}_fft_{args.dset.fft}_topdB_{args.dset.top_db}")
-
+        path_to_dataset = path_to_dataset + f"_topdB_{top_db}"
+    if args.debug:
+        path_to_dataset = path_to_dataset + "_debug"
+    path_to_dataset = Path(path_to_dataset)
+    
     # get training and validation tf record file names
     train_tfrecords_filenames = glob.glob(os.path.join(path_to_dataset, 'train_*'))
     val_tfrecords_filenames = glob.glob(os.path.join(path_to_dataset, 'val_*'))
@@ -87,8 +95,8 @@ def load_dataset(args):
     # shuffle the file names for training
     np.random.shuffle(train_tfrecords_filenames)
     print("Data path: ", path_to_dataset)
-    print("Training file names: ", train_tfrecords_filenames)
-    print("Validation file names: ", val_tfrecords_filenames)
+    print("Training file names: ", len(train_tfrecords_filenames))
+    print("Validation file names: ", len(val_tfrecords_filenames))
 
     def tf_record_parser(record):
         if model_name == 'lstm':
@@ -98,6 +106,7 @@ def load_dataset(args):
                     "clean_stft_magnitude": tf.io.FixedLenFeature((), tf.string),     
                     "noise_stft_phase": tf.io.FixedLenFeature((), tf.string),
                     "clean_stft_phase": tf.io.FixedLenFeature((), tf.string),
+                    'name': tf.io.FixedLenFeature((), tf.string),
                 }
                 features = tf.io.parse_single_example(record, keys_to_features)
 
@@ -134,6 +143,7 @@ def load_dataset(args):
             clean_feature = tf.stack([clean_stft_magnitude, clean_stft_phase], name="clean")
 
             return noisy_feature, clean_feature
+
         else:
             raise ValueError("Model didn't implement...")
 
@@ -143,6 +153,7 @@ def load_dataset(args):
     train_dataset = train_dataset.repeat()
     train_dataset = train_dataset.batch(args.batch_size)
     train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    
     # DataLossError (see above for traceback): corrupted record at 1261886956
     # node IteratorGetNext
     # Shape/_6

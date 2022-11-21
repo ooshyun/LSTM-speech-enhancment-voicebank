@@ -6,7 +6,7 @@ dummy:
 dset:
   wav: '/Users/seunghyunoh/workplace/study/NoiseReduction/Tiny-SpeechEnhancement/data/VoiceBankDEMAND/DS_10283_2791'
   # wav: '/home/daniel0413/workplace/project/SpeechEnhancement/TinyML/data/VoiceBankDEMAND'
-  split: 0.7
+  split: 0.9
   sample_rate: 16000
   segment: 1.008
   # lstm model
@@ -20,16 +20,18 @@ dset:
   f_max: 8000
   channels: 1
   top_db: 100
-  fft: True
+  # fft: True
+  fft: False
   center: True
   save_path: "./preprocess/data"
   fft_normalize: True
-  normalize: 'none'
+  # normalize: 'none'
   # normalize: 'min-max'
-  # normalize: 'z-score'
+  normalize: 'z-score'
+  # segment_normalization: True # if this paramter is not existed, then default is False
+  segment_normalization: False 
   max_db: 96
   pad: True
-  
 
 model:
   name: 'lstm'
@@ -57,4 +59,4 @@ batch_size: 512
 steps: 10
 epochs: 1
 folder: './result'
-debug:
+debug: True
