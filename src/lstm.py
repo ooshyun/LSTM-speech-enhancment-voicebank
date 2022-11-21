@@ -401,21 +401,24 @@ def compile_model(model:Model, args):
       raise NotImplementedError(f"Optimizer {args.optim.optim} is not implemented")
 
   if args.model.path is not None:
-      tf.print("Optimizer Loading...")
-      dummpy_model = build_model_lstm(args)
-      optimizer_state = load_json(os.path.join(args.model.path, "optimizer/optim.json"))["optimizer"]
-      dummy_batch_size = 1
-      dummy_noise_tensor = tf.ones(shape=(dummy_batch_size, 2, 1, args.dset.n_segment, args.dset.n_feature))
-      dummy_clean_tensor = tf.ones(shape=(dummy_batch_size, 2, 1, args.dset.n_segment, args.dset.n_feature))
-      dummpy_model.compile(optimizer=optimizer, 
-              loss= loss_function,
-              )
-      dummpy_model.fit(x=dummy_noise_tensor, y=dummy_clean_tensor, batch_size=dummy_batch_size)
+      if "optimizer" in os.listdir(args.model.path): # optimizer folder check
+        tf.print("Optimizer Loading...")
+        dummpy_model = build_model_lstm(args)
+        optimizer_state = load_json(os.path.join(args.model.path, "optimizer/optim.json"))["optimizer"]
+        dummy_batch_size = 1
+        dummy_noise_tensor = tf.ones(shape=(dummy_batch_size, 2, 1, args.dset.n_segment, args.dset.n_feature))
+        dummy_clean_tensor = tf.ones(shape=(dummy_batch_size, 2, 1, args.dset.n_segment, args.dset.n_feature))
+        dummpy_model.compile(optimizer=optimizer, 
+                loss= loss_function,
+                )
+        dummpy_model.fit(x=dummy_noise_tensor, y=dummy_clean_tensor, batch_size=dummy_batch_size)
 
-      del dummpy_model, dummy_noise_tensor, dummy_clean_tensor   # [TODO] How to remove object and check it removed?
-      
-      optimizer.set_weights(optimizer_state)
-      tf.print("Optimizer was loaded!")
+        del dummpy_model, dummy_noise_tensor, dummy_clean_tensor   # [TODO] How to remove object and check it removed?
+        
+        optimizer.set_weights(optimizer_state)
+        tf.print("Optimizer was loaded!")
+      else:
+        tf.print("Optimizer was not existed!")
 
   metrics = [SpeechMetric(n_fft=args.dset.n_fft, hop_length=args.dset.hop_length, normalize=args.dset.fft_normalize, name=metric_name) for metric_name in args.model.metric]
   metrics.append(CustomMetric(metric=args.optim.loss, name=args.optim.loss))
