@@ -27,7 +27,7 @@ def load_callback(path, args):
     console_log_save_path = os.path.join(path, "debug.txt")
 
     early_stopping_callback = keras.callbacks.EarlyStopping(monitor='val_loss', patience=50, restore_best_weights=True, baseline=None)
-    logdir = os.path.join(f"./logs/{args.model.name}", datetime.now().strftime("%Y%m%d-%H%M%S"))
+    logdir = os.path.join(path, "logs/")
     tensorboard_callback = keras.callbacks.TensorBoard(logdir, update_freq='batch', histogram_freq=1, write_graph=True)
     checkpoint_callback = keras.callbacks.ModelCheckpoint(filepath=checkpoint_save_path, 
                                                             test='val_loss', save_best_only=True)
