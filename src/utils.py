@@ -122,7 +122,6 @@ def get_tf_feature_mag_phase_pair(noisy_stft_magnitude, clean_stft_magnitude, no
         'clean_stft_magnitude': _bytes_feature(clean_stft_magnitude),
         'noise_stft_phase': _bytes_feature(noise_stft_phase),
         'clean_stft_phase': _bytes_feature(clean_stft_phase),
-        'name': _bytes_feature(u"Hello?".encode('utf-8')),
         }))
     # print(_bytes_feature(b'test_string'))
     # print(_bytes_feature(u'test_bytes'.encode('utf-8')))

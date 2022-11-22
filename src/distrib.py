@@ -106,7 +106,6 @@ def load_dataset(args):
                     "clean_stft_magnitude": tf.io.FixedLenFeature((), tf.string),     
                     "noise_stft_phase": tf.io.FixedLenFeature((), tf.string),
                     "clean_stft_phase": tf.io.FixedLenFeature((), tf.string),
-                    'name': tf.io.FixedLenFeature((), tf.string),
                 }
                 features = tf.io.parse_single_example(record, keys_to_features)
 
