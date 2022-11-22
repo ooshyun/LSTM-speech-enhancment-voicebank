@@ -1,7 +1,9 @@
 from src.utils import load_yaml
-from create_dataset import preprocess_data
+from create_dataset import preprocess_data, limit_gpu_tf
 
 if __name__ == "__main__":
+    limit_gpu_tf()
+
     path_conf = "./conf/config_preprocess.yaml"
     config = load_yaml(path_conf)
 

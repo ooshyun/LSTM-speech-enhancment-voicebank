@@ -6,6 +6,12 @@ Previously, the cnn-audio repository includes dataset MozillaCommonVoice and Urb
 This includes tensorflow 2.9 and tensorflow api such as fit, callback, but this has limitation for implementing custom loss function. For example, if I want to compute loss referring the metadata(ex. mean, std) during training, the tensorflow only conveys estimation, true data, and weight. Even if I tried to convey the data including those metadata, it will be wasteful approach. The metrics such as stoi, sdr, pesq also has [some issues]() to implement. So this repository is for understanding how tensorflow framework operate when they're training the model, and especially you can observe the model will have convergence. And the other work such as implementation to tiny devices continues to the [other repository](https://github.com/ooshyun/TinyLSTM-for-speech-enhancement).
 
 ## Details
+### 0. Before the Start
+The environment is based on MacOS and Linux with miniconda, which I tested. Using *.yml files, then run the conda environment.
+
+- make conda environment            : conda env create "environment name"
+- make conda environment with yml   : conda env create -f environment-macos.yml
+- export conda environment          : conda env export > environment.yml
 
 ### 1. Tree
 ---
@@ -46,10 +52,9 @@ Tree of this repository is as below
     │   └── test_model.py
     └── train.py 
 ```
-The repository consitute configuration, create dataset after preprocess, train, inference, and test of apis. 
+The repository consitute configuration, create dataset after preprocess, train, inference, and test of apis. After this line, each of parts explains the major part of this repository and structure.
 
 ### 2. Configuration
-Configuration includes several features. The list is as below.
 
 1. Dataset: dset
     ```
@@ -95,7 +100,7 @@ Configuration includes several features. The list is as below.
     debug
     ```
 
-### 3. Preprocess in dataset.py
+### 3. Preprocess, create_dataset.py
 ```
 1. Load the configuration
 
@@ -113,7 +118,7 @@ Configuration includes several features. The list is as below.
     7) save as the form, tfrecord
 ```
 
-### 4. Train
+### 4. Train, train.py
 ```
 1. Load the configuration
 
@@ -137,23 +142,41 @@ Configuration includes several features. The list is as below.
 5. Train using fit in tensorflow
 
 6. Save model and Optimizer
+
+7. Save configuration 
 ```
 
-### 5. Inference
+### 5. Inference, inference.ipynb
+```
+1. Load trained model and configuration from saved folder
+    - Refer the path
+    - Load the configuration
+    - Load/build/compile the model
+
+2. Process test wav file
+    - load wav file
+    - normalize wav
+    - convert stft
+    - normalize fft by fft size
+
+3. Apply model
+    - reshape the stft data
+    - apply model
+    - revert to audio
+        - revert from amplitude and phase to stft
+        - revert stft from stft normalized on a frame
+        - istft
+        - revert audio sample from istft
+        - apply meta data from normalization in audio samples
+
+4. Show the result
+    - plot, ipd.Audio, stft
+```
+
+### 6. Result
+Will be updated....
 
 
 ## Reference
 - Train and Validate: https://keras.io/examples/audio/transformer_asr/
 - Mel: https://keras.io/examples/audio/melgan_spectrogram_inversion/
-
-- conf: configuration file
-- history: previous files
-- preprocess: preprocess dataset
-- result: saved model
-- logs: tensorboard
-- test: test functionality
-
-
-[TODO]
-- library
-    - scipy 1.8.1
