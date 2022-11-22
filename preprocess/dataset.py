@@ -121,9 +121,6 @@ class DatasetVoiceBank:
 
     def create_tf_record(self, *, prefix, parallel=False):
         root = self.args.save_path
-
-        # p = multiprocessing.Pool(multiprocessing.cpu_count())
-
         folder = f"{root}/records_{self.model_name}_train_{int(self.args.split*100)}_norm_{self.args.normalize}_segNorm_{self.args.segment_normalization}_fft_{self.args.fft}"
         
         if self.args.fft_normalize:
@@ -137,95 +134,116 @@ class DatasetVoiceBank:
             os.mkdir(folder)
 
         if self.debug:
-            file_name_list = [(clean_filename, noisy_filename) for clean_filename, noisy_filename in zip(self.clean_filenames[:2], self.noisy_filenames[:2])]
+            file_name_list = [(clean_filename, noisy_filename) for clean_filename, noisy_filename in zip(self.clean_filenames[:100], self.noisy_filenames[:100])]
         else:
             file_name_list = [(clean_filename, noisy_filename) for clean_filename, noisy_filename in zip(self.clean_filenames, self.noisy_filenames)]
-            
-        if parallel: # Didn't work
-            print(f"CPU ", os.cpu_count()-3 if os.cpu_count()>4 else 1, "...")
-            out = []
-            pendings = []
-            with ProcessPoolExecutor(os.cpu_count()-3 if os.cpu_count()>4 else 1) as pool:
-                for file_name in file_name_list:
-                    pendings.append(pool.submit(self.audio_process, file_name))
-                
-                for pending in tqdm.tqdm(pendings):
-                    out.append(pending.result())
-            # out = p.map(self.parallel_audio_processing, clean_filenames_sublist)
-        else:
-            out = [self.audio_process(file_names) for file_names in tqdm.tqdm(file_name_list, ncols=120)]
+        
+        start = 0
+        step = 100
+        end = step
+        
+        print(f"Total {prefix} file number: {len(file_name_list)}")
 
-        for name, data in out:
-            if self.args.fft:
-                noisy_stft_magnitude = data[0]
-                clean_stft_magnitude = data[1]
-                noisy_stft_phase = data[2]
-                clean_stft_phase = data[3]
-                # noisy_stft_real = data[4]
-                # clean_stft_real = data[5]
-                # noisy_stft_imag = data[6]
-                # clean_stft_imag = data[7]
-                if self.debug:
-                    print("  Getting from preprocess")
-                    print("[DEBUG]: ", noisy_stft_magnitude.shape, noisy_stft_phase.shape, clean_stft_magnitude.shape, clean_stft_phase.shape)
-                    print("[DEBUG]: ", noisy_stft_magnitude.dtype, noisy_stft_phase.dtype, clean_stft_magnitude.dtype, clean_stft_phase.dtype)
-                    print("---")
-
-                new_axes = np.arange(len(clean_stft_phase.shape))
-                new_axes[-2:] = new_axes[-1], new_axes[-2]
-
-                noisy_stft_magnitude = np.transpose(noisy_stft_magnitude, axes=new_axes)
-                clean_stft_magnitude = np.transpose(clean_stft_magnitude, axes=new_axes)
-                noisy_stft_phase = np.transpose(noisy_stft_phase, axes=new_axes)
-                clean_stft_phase = np.transpose(clean_stft_phase, axes=new_axes) # segment, ch, frame, freqeuncy
-                if self.args.fft_normalize:
-                    noisy_stft_magnitude /= (self.args.n_feature-1)*2
-                    clean_stft_magnitude /= (self.args.n_feature-1)*2 
-
-                if self.debug:
-                    print(" Segmentation")
-                    print("[DEBUG]: ", noisy_stft_magnitude.shape, noisy_stft_phase.shape, clean_stft_magnitude.shape, clean_stft_phase.shape)
-                    print("[DEBUG]: ", noisy_stft_magnitude.dtype, noisy_stft_phase.dtype, clean_stft_magnitude.dtype, clean_stft_phase.dtype)
-                    print("---")
-
-                for idata, (noise_mag, clean_mag, noisy_phase, clean_phase) in enumerate(zip(noisy_stft_magnitude, clean_stft_magnitude, noisy_stft_phase, clean_stft_phase)):
-                    noise_mag = np.expand_dims(noise_mag, axis=0)  # 1, ch, frame, freqeuncy
-                    clean_mag = np.expand_dims(clean_mag, axis=0)
-                    noisy_phase = np.expand_dims(noisy_phase, axis=0)
-                    clean_phase = np.expand_dims(clean_phase, axis=0)
-
-                    if self.debug:
-                        print("  Write Down to tfrecord")
-                        print("[DEBUG]: ", noise_mag.shape, noisy_phase.shape, clean_mag.shape, clean_phase.shape)
-                        print("[DEBUG]: ", noise_mag.dtype, noisy_phase.dtype, clean_mag.dtype, clean_phase.dtype)
-                        print("---")
-    
-                    example = get_tf_feature_mag_phase_pair(noise_mag, clean_mag, noisy_phase, clean_phase)
-
-                    tfrecord_filename = f"{folder}/{prefix}_{name}_{idata}.tfrecords"
-                    writer = tf.io.TFRecordWriter(tfrecord_filename)
-                    if os.path.isfile(tfrecord_filename):
-                        print(f"Skipping {tfrecord_filename}")
-                        continue
-                    writer.write(example.SerializeToString())    
+        for istep in tqdm.tqdm(range(len(file_name_list)//step), ncols=120):
+            if istep == len(file_name_list)//step-1:
+                submitted_file_name_list = file_name_list[start:]
             else:
-                noisy_audio = data[0]
-                clean_audio = data[1]
-                
-                if self.debug:
-                    print("[DEBUG]: ", noisy_audio.shape, clean_audio.shape)
+                submitted_file_name_list = file_name_list[start:end]
+        
+            if parallel:
+                    print(f"CPU ", os.cpu_count()-3 if os.cpu_count()>4 else 1, "...")
+                    out = []
+                    pendings = []
+                    with ProcessPoolExecutor(os.cpu_count()-3 if os.cpu_count()>4 else 1) as pool:
+                        for file_name in submitted_file_name_list:
+                            pendings.append(pool.submit(self.audio_process, file_name))
+                        
+                        for pending in tqdm.tqdm(pendings):
+                            out.append(pending.result())
+                    # out = p.map(self.parallel_audio_processing, clean_filenames_sublist)
+            else:
+                out = [self.audio_process(file_names) for file_names in submitted_file_name_list]
 
-                for idata, (noise_segment, clean_segment) in enumerate(zip(noisy_audio, clean_audio)):
+            for name, data in out:
+                if self.args.fft:
+                    noisy_stft_magnitude = data[0]
+                    clean_stft_magnitude = data[1]
+                    noisy_stft_phase = data[2]
+                    clean_stft_phase = data[3]
+                    # noisy_stft_real = data[4]
+                    # clean_stft_real = data[5]
+                    # noisy_stft_imag = data[6]
+                    # clean_stft_imag = data[7]
                     if self.debug:
-                        print("  Write Down to tfrecord")
-                        print("[DEBUG]: ", noise_segment.shape, clean_segment.shape)
+                        print("  Getting from preprocess")
+                        print("[DEBUG]: ", noisy_stft_magnitude.shape, noisy_stft_phase.shape, clean_stft_magnitude.shape, clean_stft_phase.shape)
+                        print("[DEBUG]: ", noisy_stft_magnitude.dtype, noisy_stft_phase.dtype, clean_stft_magnitude.dtype, clean_stft_phase.dtype)
                         print("---")
 
-                    example = get_tf_feature_sample_pair(noise_segment, clean_segment)
-                    tfrecord_filename = f"{folder}/{prefix}_{name}_{idata}.tfrecords"
-                    writer = tf.io.TFRecordWriter(tfrecord_filename)
-                    if os.path.isfile(tfrecord_filename):
-                        print(f"Skipping {tfrecord_filename}")
-                        continue
-                    writer.write(example.SerializeToString())  
-        writer.close()
+                    new_axes = np.arange(len(clean_stft_phase.shape))
+                    new_axes[-2:] = new_axes[-1], new_axes[-2]
+
+                    noisy_stft_magnitude = np.transpose(noisy_stft_magnitude, axes=new_axes)
+                    clean_stft_magnitude = np.transpose(clean_stft_magnitude, axes=new_axes)
+                    noisy_stft_phase = np.transpose(noisy_stft_phase, axes=new_axes)
+                    clean_stft_phase = np.transpose(clean_stft_phase, axes=new_axes) # segment, ch, frame, freqeuncy
+                    if self.args.fft_normalize:
+                        noisy_stft_magnitude /= (self.args.n_feature-1)*2
+                        clean_stft_magnitude /= (self.args.n_feature-1)*2 
+
+                    if self.debug:
+                        print(" Segmentation")
+                        print("[DEBUG]: ", noisy_stft_magnitude.shape, noisy_stft_phase.shape, clean_stft_magnitude.shape, clean_stft_phase.shape)
+                        print("[DEBUG]: ", noisy_stft_magnitude.dtype, noisy_stft_phase.dtype, clean_stft_magnitude.dtype, clean_stft_phase.dtype)
+                        print("---")
+
+                    for idata, (noise_mag, clean_mag, noisy_phase, clean_phase) in enumerate(zip(noisy_stft_magnitude, clean_stft_magnitude, noisy_stft_phase, clean_stft_phase)):
+                        noise_mag = np.expand_dims(noise_mag, axis=0)  # 1, ch, frame, freqeuncy
+                        clean_mag = np.expand_dims(clean_mag, axis=0)
+                        noisy_phase = np.expand_dims(noisy_phase, axis=0)
+                        clean_phase = np.expand_dims(clean_phase, axis=0)
+
+                        if self.debug:
+                            print("  Write Down to tfrecord")
+                            print("[DEBUG]: ", noise_mag.shape, noisy_phase.shape, clean_mag.shape, clean_phase.shape)
+                            print("[DEBUG]: ", noise_mag.dtype, noisy_phase.dtype, clean_mag.dtype, clean_phase.dtype)
+                            print("---")
+        
+                        example = get_tf_feature_mag_phase_pair(noise_mag, clean_mag, noisy_phase, clean_phase)
+
+                        tfrecord_filename = f"{folder}/{prefix}_{name}_{idata}.tfrecords"
+                        if os.path.isfile(tfrecord_filename): # [TODO] Why at first time, it goes here?
+                            print(f"Skipping {tfrecord_filename}")
+                            continue
+                        else:
+                            writer = tf.io.TFRecordWriter(tfrecord_filename)
+                            writer.write(example.SerializeToString())
+                            writer.close()
+                else:
+                    noisy_audio = data[0]
+                    clean_audio = data[1]
+                    
+                    if self.debug:
+                        print("[DEBUG]: ", noisy_audio.shape, clean_audio.shape)
+
+                    for idata, (noise_segment, clean_segment) in enumerate(zip(noisy_audio, clean_audio)):
+                        if self.debug:
+                            print("  Write Down to tfrecord")
+                            print("[DEBUG]: ", noise_segment.shape, clean_segment.shape)
+                            print("---")
+
+                        example = get_tf_feature_sample_pair(noise_segment, clean_segment)
+                        tfrecord_filename = f"{folder}/{prefix}_{name}_{idata}.tfrecords"
+                        if os.path.isfile(tfrecord_filename):
+                            print(f"Skipping {tfrecord_filename}")
+                            continue
+                        else:
+                            writer = tf.io.TFRecordWriter(tfrecord_filename)
+                            writer.write(example.SerializeToString())
+                            writer.close()
+            
+            del out # resolve memory leak 
+            start += step
+            end += step
+
+  
