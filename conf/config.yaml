@@ -15,21 +15,19 @@ dset:
   hop_length: 256
   channels: 1
   top_db: 100
-  # fft: True
-  fft: False
+  fft: True
+  # fft: False
   center: True
   save_path: "./data"
   fft_normalize: True
   # normalize: 'none'
-  # normalize: 'min-max'
-  normalize: 'z-score'
+  normalize: 'min-max'
+  # normalize: 'z-score'
   # segment_normalization: True # if this paramter is not existed, then default is False
   segment_normalization: False 
-  max_db: 96
 
 model:
   name: 'lstm'
-  sample_rate: 16000
   lstm_layer: 256
   n_feature: 257
   n_segment: 64 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
@@ -51,7 +49,6 @@ optim:
   # loss: 'mse'
   loss: 'rmse'
   # loss: 'psa'
-  clip_grad: False
 
 seed: 10
 batch_size: 512

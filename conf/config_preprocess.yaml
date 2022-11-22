@@ -25,7 +25,6 @@ dset:
   normalize: 'z-score'
   # segment_normalization: True # if this paramter is not existed, then default is False
   segment_normalization: False 
-  max_db: 96
 
 model:
   name: 'lstm'

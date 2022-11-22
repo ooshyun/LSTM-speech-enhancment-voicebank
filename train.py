@@ -2,6 +2,7 @@ import os
 import datetime
 import numpy as np
 from shutil import copyfile
+
 # import IPython.display as ipd
 
 # Tensor related library
@@ -14,10 +15,11 @@ from tensorflow.python.client import device_lib
 from src.distrib import load_dataset, load_model, load_callback
 from src.utils import load_yaml, obj2dict
 
+
 def train(args):
     # 1. Set Paramter
     device_lib.list_local_devices()
-    
+
     print("  Train Parameter")
     args_dict = obj2dict(args)
     print(args_dict)
@@ -30,15 +32,16 @@ def train(args):
 
     train_dataset, test_dataset = load_dataset(args)
 
-
     # 3. Build model
     model = load_model(args)
-            
+
     # You might need to install the following dependencies: sudo apt install python-pydot python-pydot-ng graphviz
     # keras.utils.plot_model(model, show_shapes=True, dpi=64)
 
     # 4. Set logging
-    save_path = os.path.join(args.folder, model_name, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    save_path = os.path.join(
+        args.folder, model_name, datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    )
     callbacks_list = load_callback(save_path, args)
     print("Save path: ", save_path)
 
@@ -47,28 +50,30 @@ def train(args):
     print(f"Baseline accuracy {baseline_val_loss}")
 
     # 6. Train
-    model.fit(train_dataset, # model.fit([pair_1, pair_2], labels, epochs=50)
-            steps_per_epoch=args.steps, # you might need to change this
-            validation_data=test_dataset,
-            epochs=args.epochs,
-            callbacks=callbacks_list
-            )
+    model.fit(
+        train_dataset,  # model.fit([pair_1, pair_2], labels, epochs=50)
+        steps_per_epoch=args.steps,  # you might need to change this
+        validation_data=test_dataset,
+        epochs=args.epochs,
+        callbacks=callbacks_list,
+    )
 
     # 7. Save trained model after evaluation
     val_loss = model.evaluate(test_dataset)[0]
     if val_loss < baseline_val_loss:
         print("New model saved.")
         from src.distrib import save_model_all
+
         save_model_all(save_path, model)
-    
+
     return save_path
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     device_name = tf.test.gpu_device_name()
-    if device_name != '/device:GPU:0':
-        raise SystemError('GPU device not found')
-    print('Found GPU at: {}'.format(device_name))
+    if device_name != "/device:GPU:0":
+        raise SystemError("GPU device not found")
+    print("Found GPU at: {}".format(device_name))
 
     path_conf = "./conf/config.yaml"
     config = load_yaml(path_conf)

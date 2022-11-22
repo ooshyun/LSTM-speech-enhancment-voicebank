@@ -12,7 +12,9 @@ class UrbanSound8K:
         self.class_ids = class_ids
 
     def _get_urban_sound_8K_filenames(self):
-        urbansound_metadata = pd.read_csv(os.path.join(self.basepath, 'metadata', 'UrbanSound8K.csv'))
+        urbansound_metadata = pd.read_csv(
+            os.path.join(self.basepath, "metadata", "UrbanSound8K.csv")
+        )
 
         # shuffle the dataframe
         urbansound_metadata.reindex(np.random.permutation(urbansound_metadata.index))
@@ -22,16 +24,20 @@ class UrbanSound8K:
     def _get_filenames_by_class_id(self, metadata):
 
         if self.class_ids is None:
-            self.class_ids = np.unique(metadata['classID'].values)
+            self.class_ids = np.unique(metadata["classID"].values)
             print("Number of classes:", self.class_ids)
 
         all_files = []
         file_counter = 0
         for c in self.class_ids:
-            per_class_files = metadata[metadata['classID'] == c][['slice_file_name', 'fold']].values
-            per_class_files = [os.path.join(self.basepath, 'audio', 'fold' + str(file[1]), file[0]) for file in
-                               per_class_files]
-            print("Class c:", str(c), 'has:', len(per_class_files), 'files')
+            per_class_files = metadata[metadata["classID"] == c][
+                ["slice_file_name", "fold"]
+            ].values
+            per_class_files = [
+                os.path.join(self.basepath, "audio", "fold" + str(file[1]), file[0])
+                for file in per_class_files
+            ]
+            print("Class c:", str(c), "has:", len(per_class_files), "files")
             file_counter += len(per_class_files)
             all_files.extend(per_class_files)
 
@@ -48,8 +54,8 @@ class UrbanSound8K:
         np.random.shuffle(urbansound_train_filenames)
 
         # separate noise files for train/validation
-        urbansound_val = urbansound_train_filenames[-self.val_dataset_size:]
-        urbansound_train = urbansound_train_filenames[:-self.val_dataset_size]
+        urbansound_val = urbansound_train_filenames[-self.val_dataset_size :]
+        urbansound_train = urbansound_train_filenames[: -self.val_dataset_size]
         print("Noise training:", len(urbansound_train))
         print("Noise validation:", len(urbansound_val))
 

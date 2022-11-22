@@ -6,6 +6,7 @@ from museval.metrics import bss_eval
 
 import logging
 
+
 def SDR(reference, estimation, sr=16000):
     """Signal to Distortion Ratio (SDR) from museval
 
@@ -19,12 +20,15 @@ def SDR(reference, estimation, sr=16000):
     reference_numpy = reference.numpy()
     estimation_numpy = estimation.numpy()
     sdr_batch = np.empty(shape=(reference_numpy.shape[0], reference_numpy.shape[1]))
-    
+
     for batch in range(reference_numpy.shape[0]):
         for ch in range(reference_numpy.shape[1]):
-            sdr_batch[batch, ch], _, _, _, _ = bss_eval(reference_numpy[batch, ch], estimation_numpy[batch, ch])    
+            sdr_batch[batch, ch], _, _, _, _ = bss_eval(
+                reference_numpy[batch, ch], estimation_numpy[batch, ch]
+            )
     sdr_batch = np.mean(sdr_batch)
     return sdr_batch
+
 
 def SI_SDR(reference, estimation, sr=16000):
     """Scale-Invariant Signal-to-Distortion Ratio (SI-SDR)。
@@ -39,7 +43,7 @@ def SI_SDR(reference, estimation, sr=16000):
     References:
         SDR- Half- Baked or Well Done? (http://www.merl.com/publications/docs/TR2019-013.pdf)
     """
-    estimation, reference = np.broadcast_arrays(estimation, reference)    
+    estimation, reference = np.broadcast_arrays(estimation, reference)
     reference_energy = np.sum(reference**2, axis=-1, keepdims=True)
 
     optimal_scaling = (
@@ -47,10 +51,9 @@ def SI_SDR(reference, estimation, sr=16000):
     )
 
     projection = optimal_scaling * reference
-
     noise = estimation - projection
 
-    ratio = np.sum(projection**2, axis=-1) / np.sum(noise**2, axis=-1)    
+    ratio = np.sum(projection**2, axis=-1) / np.sum(noise**2, axis=-1)
     ratio = np.mean(ratio)
     return 10 * np.log10(ratio)
 
@@ -61,10 +64,16 @@ def STOI(reference, estimation, sr=16000):
     stoi_batch = np.empty(shape=(reference_numpy.shape[0], reference_numpy.shape[1]))
     for batch in range(reference_numpy.shape[0]):
         for ch in range(reference_numpy.shape[1]):
-            stoi_batch[batch, ch] = stoi(reference_numpy[batch, ch], estimation_numpy[batch, ch], sr, extended=False)    
-    
+            stoi_batch[batch, ch] = stoi(
+                reference_numpy[batch, ch],
+                estimation_numpy[batch, ch],
+                sr,
+                extended=False,
+            )
+
     stoi_batch = np.mean(stoi_batch)
     return stoi_batch
+
 
 def WB_PESQ(reference, estimation, sr=16000):
     reference_numpy = reference.numpy()
@@ -76,20 +85,25 @@ def WB_PESQ(reference, estimation, sr=16000):
     for batch in range(num_batch):
         for ch in range(num_channel):
             try:
-                pesq_batch[batch, ch] = pesq(sr, reference_numpy[batch, ch], estimation_numpy[batch, ch], mode='wb')
+                pesq_batch[batch, ch] = pesq(
+                    sr,
+                    reference_numpy[batch, ch],
+                    estimation_numpy[batch, ch],
+                    mode="wb",
+                )
             except cypesq.NoUtterancesError:
                 logging.info("cypesq.NoUtterancesError: b'No utterances detected'")
                 count_error += 1
-    if batch*num_channel-count_error > 0:
-        pesq_batch = np.sum(pesq_batch)/(num_batch*num_channel-count_error)
-    else: 
+    if batch * num_channel - count_error > 0:
+        pesq_batch = np.sum(pesq_batch) / (num_batch * num_channel - count_error)
+    else:
         pesq_batch = 0
     return pesq_batch
 
 
 def NB_PESQ(reference, estimation, sr=16000):
     reference_numpy = reference.numpy()
-    estimation_numpy = estimation.numpy()   
+    estimation_numpy = estimation.numpy()
     score = 0
 
     for ref_batch, est_batch in zip(reference_numpy, estimation_numpy):
@@ -97,6 +111,10 @@ def NB_PESQ(reference, estimation, sr=16000):
             # print(ref_ch.shape, est_ch.shape, type(ref_ch), type(est_ch))
             # print(ref_ch, est_ch)
             score += nb_pesq(sr, ref_ch, est_ch)
-    score /= reference.shape[0]*reference.shape[1] if reference.shape[0] is not None else reference.shape[1]
+    score /= (
+        reference.shape[0] * reference.shape[1]
+        if reference.shape[0] is not None
+        else reference.shape[1]
+    )
     score = np.squeeze(score)
     return score
