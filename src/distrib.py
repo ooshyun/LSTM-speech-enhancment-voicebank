@@ -204,6 +204,14 @@ def load_dataset(args):
         else:
             raise ValueError("Model didn't implement...")
 
+    """
+    TFRecordDataset
+      map: map between each filenames and custom function
+      shuffle: shuffle the number of data, it can set a seed
+      repeat: if repeat 2, then [1, 2] -> [1, 2, 1, 2]
+      batch: same as batch concept
+      prefetch: prepare while training, if set the buffer size as tf.data.experimental.AUTOTUNE, it use automatic method in keras
+    """
     train_dataset = tf.data.TFRecordDataset([train_tfrecords_filenames])
     train_dataset = train_dataset.map(tf_record_parser)
     train_dataset = train_dataset.shuffle(8192)
