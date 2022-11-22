@@ -23,7 +23,7 @@ dset:
   # fft: True
   fft: False
   center: True
-  save_path: "./preprocess/data"
+  save_path: "./data"
   fft_normalize: True
   # normalize: 'none'
   # normalize: 'min-max'

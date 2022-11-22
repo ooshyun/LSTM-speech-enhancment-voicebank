@@ -1,5 +1,5 @@
-from preprocess.VoiceBankDEMAND import VoiceBandDEMAND
-from preprocess.dataset import DatasetVoiceBank
+from src.preprocess.VoiceBankDEMAND import VoiceBandDEMAND
+from src.preprocess.dataset import DatasetVoiceBank
 import os
 import pickle
 import warnings

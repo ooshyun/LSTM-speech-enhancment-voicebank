@@ -5,20 +5,20 @@
  The clean waveforms were added to noise after they had been normalised and silence segments 
  longer than 200 ms had been trimmed off from the beginning and end of each sentence.
 """
-from concurrent.futures import ProcessPoolExecutor
-from distutils.command.clean import clean
+import os
+import tqdm
 import librosa
 import numpy as np
-import math
-from preprocess.feature_extractor import FeatureExtractor
-import multiprocessing
-import os
-from pathlib import Path
-from src.utils import get_tf_feature_mag_phase_pair, get_tf_feature_sample_pair, read_audio, segment_audio, encode_normalize
 import tensorflow as tf
-from sklearn.preprocessing import StandardScaler
-import logging
-import tqdm
+from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor
+from .feature_extractor import FeatureExtractor
+from src.utils import get_tf_feature_mag_phase_pair, get_tf_feature_sample_pair, read_audio, segment_audio, encode_normalize
+
+# import logging
+# import math
+# import multiprocessing
+# from sklearn.preprocessing import StandardScaler
 
 class DatasetVoiceBank:
     def __init__(self, clean_filenames, noisy_filenames, name, args, debug=False):
@@ -138,6 +138,7 @@ class DatasetVoiceBank:
         else:
             file_name_list = [(clean_filename, noisy_filename) for clean_filename, noisy_filename in zip(self.clean_filenames, self.noisy_filenames)]
         
+        # If file list for preprocess didn't divide, then it will stack in memory(RAM)
         start = 0
         step = 100
         end = step
