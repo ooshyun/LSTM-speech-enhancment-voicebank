@@ -1,7 +1,10 @@
 **
 !*.py
 !*.md
-!data_processing/
 !history/
 !.gitignore
 !*.ipynb
+!*.pkl
+!src/
+!conf/
+!test/

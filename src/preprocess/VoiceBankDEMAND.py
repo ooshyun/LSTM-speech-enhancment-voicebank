@@ -1,10 +1,8 @@
 import glob
-import pandas as pd
 import numpy as np
 from pathlib import Path
 import os
 import copy
-np.random.seed(999)
 
 EXT_LIST = ['wav']
 
@@ -59,11 +57,11 @@ class VoiceBandDEMAND:
 
         # separate noise files for train/validation
         len_val = int(len(voicebank_id)*self.val_dataset_percent)
-        voicebank_val_clean_shuffle = [voicebank_filenames_clean[id] for id in voicebank_id[-len_val:]]
-        voicebank_val_noisy_shuffle = [voicebank_filenames_noisy[id] for id in voicebank_id[-len_val:]]
-
         voicebank_train_clean_shuffle = [voicebank_filenames_clean[id] for id in voicebank_id[:-len_val]] 
         voicebank_train_noisy_shuffle = [voicebank_filenames_noisy[id] for id in voicebank_id[:-len_val]] 
+
+        voicebank_val_clean_shuffle = [voicebank_filenames_clean[id] for id in voicebank_id[-len_val:]]
+        voicebank_val_noisy_shuffle = [voicebank_filenames_noisy[id] for id in voicebank_id[-len_val:]]
 
         print("Training:", len(voicebank_train_clean_shuffle))
         print("Validation:", len(voicebank_val_clean_shuffle))
