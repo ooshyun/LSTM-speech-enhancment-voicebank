@@ -189,8 +189,8 @@ class DatasetVoiceBank:
                     noisy_stft_phase = np.transpose(noisy_stft_phase, axes=new_axes)
                     clean_stft_phase = np.transpose(clean_stft_phase, axes=new_axes) # segment, ch, frame, freqeuncy
                     if self.args.fft_normalize:
-                        noisy_stft_magnitude /= (self.args.n_feature-1)*2
-                        clean_stft_magnitude /= (self.args.n_feature-1)*2 
+                        noisy_stft_magnitude /= self.args.n_fft
+                        clean_stft_magnitude /= self.args.n_fft
 
                     if self.debug:
                         print(" Segmentation")

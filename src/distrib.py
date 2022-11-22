@@ -66,8 +66,8 @@ def load_dataset(args):
     nfft = args.dset.n_fft
     hop_length = args.dset.hop_length
     center = args.dset.center
-    num_features = args.dset.n_feature
-    num_segments = args.dset.n_segment
+    num_features = args.model.n_feature
+    num_segments = args.model.n_segment
     normalization = args.dset.normalize
     fft_normalization = args.dset.fft_normalize
     top_db = args.dset.top_db

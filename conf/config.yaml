@@ -13,11 +13,6 @@ dset:
   n_fft: 512
   win_length: 512
   hop_length: 256
-  n_feature: 257
-  n_segment: 64 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
-  n_mels: 128
-  f_min: 125
-  f_max: 8000
   channels: 1
   top_db: 100
   # fft: True
@@ -31,12 +26,16 @@ dset:
   # segment_normalization: True # if this paramter is not existed, then default is False
   segment_normalization: False 
   max_db: 96
-  pad: True
 
 model:
   name: 'lstm'
   sample_rate: 16000
   lstm_layer: 256
+  n_feature: 257
+  n_segment: 64 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
+  n_mels: 128
+  f_min: 125
+  f_max: 8000
   metric: ['sisdr']
   path:
   ckpt:

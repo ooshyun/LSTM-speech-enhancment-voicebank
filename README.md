@@ -1,34 +1,86 @@
-# A Fully Convolutional Neural Network for Speech Enhancement
+# LSTM model for Speech Enhancment
 
-Tensorflow 2.0 implementation of the paper [A Fully Convolutional Neural Network for Speech Enhancement](https://pdfs.semanticscholar.org/9ed8/e2f6c338f4e0d1ab0d8e6ab8b836ea66ae95.pdf)
+This repository is forked form [A Fully Convolutional Neural Network for Speech Enhancement](https://github.com/EncoraDigital/SAB-cnn-audio-denoiser), but the contents is different.
+Previously, the cnn-audio repository includes dataset MozillaCommonVoice and UrbanSound. In my case, I cannot access previous dataset in the reason I am not in academic. Therefore, we modify the entire structure for VoiceBankDEMAND dataset. In additions, this repository didn't include previous model(CNN), because my final goal is implementing this model to tiny devices. Hoewever, there's not lots of open-sources for implementing ML model to embedded devices, especially for speech enhancement. So it will approach LSTM model to implement on the device named STM32F746, which was referred by [Speech enhancment made by Bose](https://github.com/Bose/efficient-neural-speech-enhancement). 
 
-Blog post: [Practical Deep Learning Audio Denoising](https://medium.com/better-programming/practical-deep-learning-audio-denoising-79c1c1aea299)
+This includes tensorflow 2.9 and tensorflow api such as fit, callback, but this has limitation for implementing custom loss function. For example, if I want to compute loss referring the metadata(ex. mean, std) during training, the tensorflow only conveys estimation, true data, and weight. Even if I tried to convey the data including those metadata, it will be wasteful approach. The metrics such as stoi, sdr, pesq also has [some issues]() to implement. So this repository is for understanding how tensorflow framework operate when they're training the model, and especially you can observe the model will have convergence. And the other work such as implementation to tiny devices continues to the [other repository](https://github.com/ooshyun/TinyLSTM-for-speech-enhancement).
 
-## Dataset
+## Details
 
-Part of the dataset used to train the original system is now [available to download](http://cdn.daitan.com/dataset.zip)
-  
-The zip file contains 1 training file (that is 10% of the data used to train the system), a validation file, and two 
-audio files (not included in the training files) used to evaluate the model. 
+### 1. Tree
+---
+Tree of this repository is as below
+```
+    .
+    ├── README.md
+    ├── conf
+    │   ├── config.yaml
+    │   └── config_preprocess.yaml
+    ├── create_dataset.py
+    ├── create_dataset_iter.py
+    ├── data
+    ├── history
+    │   └── etc
+    ├── inference.ipynb
+    ├── result
+    │   └── lstm
+    ├── src
+    │   ├── __init__.py
+    │   ├── distrib.py
+    │   ├── lstm.py
+    │   ├── metrics.py
+    │   ├── preprocess
+    │   │   ├── VoiceBankDEMAND.py
+    │   │   ├── __init__.py
+    │   │   ├── dataset.py
+    │   │   └── feature_extractor.py
+    │   └── utils.py
+    ├── test
+    │   ├── __init__.py
+    │   ├── analyze_dataset.ipynb
+    │   ├── conf
+    │   │   ├── config.yaml
+    │   │   └── config_init.yaml
+    │   ├── result
+    │   ├── test_dataset.py
+    │   └── test_model.py
+    └── train.py 
+```
+The repository consitute configuration, create dataset after preprocess, train, inference, and test of apis. 
 
-You can create the dataset for yourself. 
+### 2. Configuration
+Configuration includes several features. The list is as below.
 
-- Download the [Mozilla Common Voice](https://voice.mozilla.org/) and [UrbanSound8K](https://urbansounddataset.weebly.com/urbansound8k.html) datasets.
-- Use the ```create_dataset.py``` script to create the TFRecord files. 
+fft size
+window size
+hop length
+fft data or samples
+normalization in wav samples
+normalization in segmentation
+remove slience
+
+Dataset related with model 
+the number of feature 
+hop length
+the number of frames in fft for segmentation
+the number of mel-spectrogram
+minimum frequency in mel-spectrogram
+maximum frequency in mel-spectrogram
+option of stft for streaming data
 
 
-- TODO
-- mel_filterbank needs the square of amplitude?
-- After saving the model, warning is as below
-WARNING:absl:Found untraced functions such as lstm_cell_layer_call_fn, lstm_cell_layer_call_and_return_conditional_losses, lstm_cell_1_layer_call_fn, lstm_cell_1_layer_call_and_return_conditional_losses while saving (showing 4 of 4). These functions will not be directly callable after loading.
+### 3. Preprocess
 
-- Why the num of CNN eval data 4000 and the num of LSTM eval data 20 ?
 
-WARNING:absl:Found untraced functions such as lstm_cell_layer_call_fn, lstm_cell_layer_call_and_return_conditional_losses, lstm_cell_1_layer_call_fn, lstm_cell_1_layer_call_and_return_conditional_losses while saving (showing 4 of 4). These functions will not be directly callable after loading.
+### 4. Train
 
-- Refers 
-    - Train and Validate: https://keras.io/examples/audio/transformer_asr/
-    - Mel: https://keras.io/examples/audio/melgan_spectrogram_inversion/
+
+### 5. Inference
+
+
+## Reference
+- Train and Validate: https://keras.io/examples/audio/transformer_asr/
+- Mel: https://keras.io/examples/audio/melgan_spectrogram_inversion/
 
 - conf: configuration file
 - history: previous files
@@ -37,5 +89,7 @@ WARNING:absl:Found untraced functions such as lstm_cell_layer_call_fn, lstm_cell
 - logs: tensorboard
 - test: test functionality
 
+
+[TODO]
 - library
     - scipy 1.8.1

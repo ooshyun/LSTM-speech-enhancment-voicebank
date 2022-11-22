@@ -35,9 +35,9 @@ class MelSpec(Layer):
         self.frame_step = args.dset.hop_length
         self.fft_length = args.dset.n_fft
         self.sampling_rate = args.dset.sample_rate
-        self.num_mel_channels = args.dset.n_mels
-        self.freq_min = args.dset.f_min
-        self.freq_max = args.dset.f_max
+        self.num_mel_channels = args.model.n_mels
+        self.freq_min = args.model.f_min
+        self.freq_max = args.model.f_max
         
         # Defining mel filter. This filter will be multiplied with the STFT output
         self.mel_filterbank = tf.signal.linear_to_mel_weight_matrix(
@@ -80,9 +80,9 @@ class InverseMelSpec(Layer):
         self.frame_step = args.dset.hop_length
         self.fft_length = args.dset.n_fft
         self.sampling_rate = args.dset.sample_rate
-        self.num_mel_channels = args.dset.n_mels
-        self.freq_min = args.dset.f_min
-        self.freq_max = args.dset.f_max
+        self.num_mel_channels = args.model.n_mels
+        self.freq_min = args.model.f_min
+        self.freq_max = args.model.f_max
         
         # Defining mel filter. This filter will be multiplied with the STFT output
         self.mel_filterbank = tf.signal.linear_to_mel_weight_matrix(
@@ -334,13 +334,13 @@ def build_model_lstm(args, power=0.3):
   # inputs_imag = Input(shape=[1, numSegments, numFeatures], name='input_imag')  
 
   # [TODO] Normalize
-  inputs = Input(shape=[2, 1, args.dset.n_segment, args.dset.n_feature], name='input')
+  inputs = Input(shape=[2, 1, args.model.n_segment, args.model.n_feature], name='input')
 
   # inputs_amp = tf.math.sqrt(tf.math.pow(tf.math.abs(inputs[...,0, :, :, :]), 2)+tf.math.pow(tf.math.abs(inputs[...,1, :, :, :]), 2))
   inputs_amp = inputs[..., 0, :, :, :]
 
   # if args.dset.fft_normalize:
-  #       inputs_amp = tf.math.divide(inputs_amp, (args.dset.n_feature-1)*2)
+  #       inputs_amp = tf.math.divide(inputs_amp, (args.model.n_feature-1)*2)
 
   inputs_phase = inputs[..., 1, :, :, :]
  
@@ -404,8 +404,8 @@ def compile_model(model:Model, args):
       dummpy_model = build_model_lstm(args)
       optimizer_state = load_json(os.path.join(args.model.path, "optimizer/optim.json"))["optimizer"]
       dummy_batch_size = 1
-      dummy_noise_tensor = tf.ones(shape=(dummy_batch_size, 2, 1, args.dset.n_segment, args.dset.n_feature))
-      dummy_clean_tensor = tf.ones(shape=(dummy_batch_size, 2, 1, args.dset.n_segment, args.dset.n_feature))
+      dummy_noise_tensor = tf.ones(shape=(dummy_batch_size, 2, 1, args.model.n_segment, args.model.n_feature))
+      dummy_clean_tensor = tf.ones(shape=(dummy_batch_size, 2, 1, args.model.n_segment, args.model.n_feature))
       dummpy_model.compile(optimizer=optimizer, 
               loss= loss_function,
               )
