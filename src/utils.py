@@ -144,7 +144,7 @@ def stft_tensorflow(wav, nfft, hop_length, center=True):
         padding[-1] = (int(nfft // 2), int(nfft // 2))
         wav = tf.pad(wav, padding, mode='constant')
 
-    window_fn = tf.signal.hamming_window
+    window_fn = tf.signal.hanning
     wav_stft = tf.signal.stft(wav, frame_length=nfft, frame_step=hop_length, window_fn=window_fn, pad_end=False)
     
     # if using inverse stft, 
@@ -312,7 +312,7 @@ def encode_normalize(wav, normalize, metadata=None):
     """
     Refernence. https://developers.google.com/machine-learning/data-prep/transform/normalization
     """
-    eps=1e-6
+    eps=1e-12
     if metadata is None:
         if normalize == 'z-score':
             mean = np.expand_dims(np.mean(wav, axis=-1), axis=-1)
