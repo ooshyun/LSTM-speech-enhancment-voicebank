@@ -23,7 +23,14 @@ from .metrics import (
     # STOI,
     # NB_PESQ
 )
-
+from .loss import (
+    convert_stft_from_amplitude_phase,
+    mean_square_error_amplitdue_phase,
+    mean_absolute_error_amplitdue_phase,
+    ideal_amplitude_mask,
+    phase_sensitive_spectral_approximation_loss,
+    phase_sensitive_spectral_approximation_loss_bose,
+)
 
 class MelSpec(Layer):
     def __init__(
@@ -115,113 +122,6 @@ class InverseMelSpec(Layer):
         return config
 
 
-def convert_stft_from_amplitude_phase(y):
-    y_amplitude = y[..., 0, :, :, :]  # amp/phase, ch, frame, freq
-    y_phase = y[..., 1, :, :, :]
-    y_amplitude = tf.cast(y_amplitude, dtype=tf.complex64)
-    y_phase = tf.math.multiply(
-        tf.cast(1j, dtype=tf.complex64), tf.cast(y_phase, dtype=tf.complex64)
-    )
-
-    return tf.math.multiply(y_amplitude, tf.math.exp(y_phase))
-
-
-def convert_stft_from_real_imag(y):
-    y_real = y[..., 0, :, :, :]  # amp/phase, ch, frame, freq
-    y_imag = y[..., 1, :, :, :]
-    y_real = tf.cast(y_real, dtype=tf.complex64)
-    y_imag = tf.math.multiply(
-        tf.cast(1j, dtype=tf.complex64), tf.cast(y_imag, dtype=tf.complex64)
-    )
-
-    return tf.add(y_real, y_imag)
-
-
-def mean_square_error_amplitdue_phase(y_true, y_pred, train=True):
-    reference_stft = convert_stft_from_amplitude_phase(y_true)
-    estimation_stft = convert_stft_from_amplitude_phase(y_pred)
-    loss = tf.keras.losses.mean_squared_error(reference_stft, estimation_stft)
-    if train:
-        return loss
-    else:
-        # For metric
-        loss = tf.cast(loss, dtype=tf.float32)
-        loss = tf.math.reduce_mean(loss)
-        return loss
-
-
-def mean_absolute_error_amplitdue_phase(y_true, y_pred, train=True):
-    reference_stft = convert_stft_from_amplitude_phase(y_true)
-    estimation_stft = convert_stft_from_amplitude_phase(y_pred)
-
-    estimation_stft = tf.convert_to_tensor(estimation_stft)
-    reference_stft = tf.cast(reference_stft, estimation_stft.dtype)
-    loss = tf.keras.losses.mean_absolute_error(reference_stft, estimation_stft)
-    if train:
-        return loss
-    else:
-        # For metric
-        loss = tf.math.reduce_mean(loss)
-        return loss
-
-
-def phase_sensitive_spectral_approximation_loss(y_true, y_pred, train=True):
-    """After backpropagation, estimation will be nan
-    D_psa(mask) = (mask|y| - |s|cos(theta))^2
-    theta = theta_s - theta_y
-    """
-    reference_amplitude = y_true[..., 0, :, :, :]
-    reference_phase = y_true[..., 1, :, :, :]
-    estimation_amplitude = y_pred[..., 0, :, :, :]
-    estimation_phase = y_pred[..., 1, :, :, :]
-
-    estimation = tf.math.multiply(
-        estimation_amplitude, tf.math.cos(estimation_phase - reference_phase)
-    )
-    loss = tf.keras.losses.mean_squared_error(reference_amplitude, estimation)
-    if train:
-        return loss
-    else:
-        # For metric
-        loss = tf.math.reduce_mean(loss)
-        return loss
-
-
-def phase_sensitive_spectral_approximation_loss_bose(y_true, y_pred, train=True):
-    """[TODO] After backpropagation, evaluation is not nan, but when training it goes to nan
-    Loss = norm_2(|X|^0.3-[X_bar|^0.3) + 0.113*norm_2(X^0.3-X_bar^0.3)
-
-    Q. How complex number can be power 0.3?
-      x + yi = r*e^{jtheta}
-      (x + yi)*0.3 = r^0.3*e^{j*theta*0.3}
-
-
-      X^0.3-X_bar^0.3 r^{0.3}*e^{j*theta*0.3} - r_bar^{0.3}*e^{j*theta_bar*0.3}
-    """
-    reference_amplitude = tf.cast(y_true[..., 0, :, :, :], dtype=tf.complex64)
-    reference_phase = tf.cast(y_true[..., 1, :, :, :], dtype=tf.complex64)
-    estimation_amplitude = tf.cast(y_pred[..., 0, :, :, :], dtype=tf.complex64)
-    estimation_phase = tf.cast(y_pred[..., 1, :, :, :], dtype=tf.complex64)
-
-    loss_absolute = tf.math.pow(
-        tf.math.pow(reference_amplitude, 0.3) - tf.math.pow(estimation_amplitude, 0.3),
-        2,
-    )
-    loss_phase = 0.113 * tf.math.pow(
-        tf.math.pow(reference_amplitude, 0.3) * tf.math.exp(1j * reference_phase * 0.3)
-        - tf.math.pow(estimation_amplitude, 0.3)
-        * tf.math.exp(1j * estimation_phase * 0.3),
-        2,
-    )
-    loss = loss_absolute + loss_phase
-    if train:
-        return loss
-    else:
-        # For metric
-        loss = tf.math.reduce_mean(loss)
-        return loss
-
-
 class CustomMetric(tf.keras.metrics.Metric):
     def __init__(self, metric, name="sisdr", **kwargs):
         super(CustomMetric, self).__init__(name=name, **kwargs)
@@ -242,6 +142,8 @@ class CustomMetric(tf.keras.metrics.Metric):
             loss_function = mean_square_error_amplitdue_phase
         elif self.metric == "rmse":
             loss_function = mean_absolute_error_amplitdue_phase
+        elif self.metric == "ideal-mag":
+            loss_function = ideal_amplitude_mask
         elif self.metric == "psa":
             loss_function = phase_sensitive_spectral_approximation_loss
         elif self.metric == "psa_bose":
@@ -370,25 +272,14 @@ class SpeechMetric(tf.keras.metrics.Metric):
 
 def build_model_lstm(args, power=0.3):
     """
-    Kernal Initialization
-    Bias   Initizlization
     # [TODO] How to print a tensor while training?
+        Kernal Initialization
+        Bias   Initizlization
     """
-
-    # inputs_real = Input(shape=[1, numSegments, numFeatures], name='input_real')
-    # inputs_imag = Input(shape=[1, numSegments, numFeatures], name='input_imag')
-
-    # [TODO] Normalize
     inputs = Input(
         shape=[2, 1, args.model.n_segment, args.model.n_feature], name="input"
     )
-
-    # inputs_amp = tf.math.sqrt(tf.math.pow(tf.math.abs(inputs[...,0, :, :, :]), 2)+tf.math.pow(tf.math.abs(inputs[...,1, :, :, :]), 2))
     inputs_amp = inputs[..., 0, :, :, :]
-
-    # if args.dset.fft_normalize:
-    #       inputs_amp = tf.math.divide(inputs_amp, (args.model.n_feature-1)*2)
-
     inputs_phase = inputs[..., 1, :, :, :]
 
     mask = tf.squeeze(inputs_amp, axis=1)  # merge channel
@@ -402,7 +293,7 @@ def build_model_lstm(args, power=0.3):
         args.model.lstm_layer // 2,
         activation="relu",
         use_bias=True,
-        kernel_initializer="glorot_uniform",
+        kernel_initializer="glorot_uniform", #glorot_uniform
         bias_initializer="zeros",
     )(
         mask
@@ -420,16 +311,9 @@ def build_model_lstm(args, power=0.3):
     mask = InverseMelSpec(args)(mask)
     mask = tf.expand_dims(mask, axis=1)  # expand channel
 
-    # mask = tf.expand_dims(mask, axis=1) # expand real/imag
-    # inputs_clx = tf.stack([inputs_real, inputs_imag], axis=-4) # ..., real/imag, ch, num_frame, freq_bin
-    # outputs_clx = Multiply()([inputs_clx, mask]) # X_bar = M (Hadamard product) |Y|exp(angle(Y)), Y is noisy
-
-    # outputs_real = Multiply()([inputs_real, mask]) # X_bar = M (Hadamard product) |Y|exp(angle(Y)), Y is noisy
-    # outputs_imag = Multiply()([inputs_imag, mask]) # X_bar = M (Hadamard product) |Y|exp(angle(Y)), Y is noisy
-
     outputs_amp = Multiply()(
         [inputs_amp, mask]
-    )  # X_bar = M (Hadamard product) |Y|exp(angle(Y)), Y is noisy
+    )
     outputs = tf.stack(
         [outputs_amp, inputs_phase], axis=-4
     )  # ..., mag/phase, ch, num_frame, freq_bin
@@ -439,12 +323,12 @@ def build_model_lstm(args, power=0.3):
 
 
 def compile_model(model: Model, args):
-    # check baseline
-    # model.compile(optimizer=optimizer,
-    #             loss= meanSquareError(), # 'mse'
-    #             metrics=[keras.metrics.RootMeanSquaredError('rmse'),
-    #             ])
-
+    """check baseline
+        model.compile(optimizer=optimizer,
+                    loss= meanSquareError(), # 'mse'
+                    metrics=[keras.metrics.RootMeanSquaredError('rmse'),
+                    ])
+    """
     if args.optim.optim == "adam":
         optimizer = keras.optimizers.Adam(args.optim.lr)
     elif args.optim.optim == "sgd":
@@ -456,6 +340,8 @@ def compile_model(model: Model, args):
         loss_function = mean_square_error_amplitdue_phase
     elif args.optim.loss == "rmse":
         loss_function = mean_absolute_error_amplitdue_phase
+    elif args.optim.loss == "ideal-mag":
+        loss_function = ideal_amplitude_mask
     elif args.optim.loss == "psa":
         loss_function = phase_sensitive_spectral_approximation_loss
     elif args.optim.loss == "psa_bose":

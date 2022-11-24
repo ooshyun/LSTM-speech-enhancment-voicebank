@@ -4,7 +4,7 @@ default:
 
 dummy:
 dset:
-  wav: '/Users/seunghyunoh/workplace/study/NoiseReduction/Tiny-SpeechEnhancement/data/VoiceBankDEMAND/DS_10283_2791'
+  wav: '/Users/seunghyunoh/workplace/research/NoiseReduction/Tiny-SpeechEnhancement/data/VoiceBankDEMAND/DS_10283_2791'
   # wav: '/home/daniel0413/workplace/project/SpeechEnhancement/TinyML/data/VoiceBankDEMAND'
   split: 0.9
   sample_rate: 16000
@@ -35,6 +35,7 @@ model:
   n_mels: 128
   f_min: 125
   f_max: 8000
+  fft_tf_normalization: True
   metric: ['sisdr']
   path:
   ckpt:

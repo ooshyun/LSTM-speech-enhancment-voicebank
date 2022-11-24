@@ -11,6 +11,26 @@ from resampy import resample
 import soundfile as sf
 import tensorflow as tf
 
+def limit_gpu_tf(memory_size):
+    """Reference. https://www.tensorflow.org/guide/gpu
+    """
+    # device_name = tf.test.gpu_device_name()
+    # if device_name != "/device:GPU:0":
+    #     raise SystemError("GPU device not found")
+    # print("Found GPU at: {}".format(device_name))
+
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+        try:
+            tf.config.set_logical_device_configuration(
+                gpus[0],
+                [tf.config.LogicalDeviceConfiguration(memory_limit=memory_size)])
+            logical_gpus = tf.config.list_logical_devices('GPU')
+            print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+        except RuntimeError as e:
+            # Virtual devices must be set before GPUs have been initialized
+            print(e)
 
 def inverse_stft_transform(stft_features, window_length, overlap):
     return librosa.istft(stft_features, win_length=window_length, hop_length=overlap)
@@ -163,13 +183,13 @@ def get_tf_feature_sample_pair(noisy, clean):
     return example
 
 
-def stft_tensorflow(wav, nfft, hop_length, center=True):
+def stft_tensorflow(wav, nfft, hop_length, center=True, normalize=True):
     if center:
         padding = [(0, 0) for _ in range(len(wav.get_shape()))]
         padding[-1] = (int(nfft // 2), int(nfft // 2))
         wav = tf.pad(wav, padding, mode="constant")
 
-    window_fn = tf.signal.hanning
+    window_fn = tf.signal.hann_window
     wav_stft = tf.signal.stft(
         wav,
         frame_length=nfft,
@@ -177,6 +197,8 @@ def stft_tensorflow(wav, nfft, hop_length, center=True):
         window_fn=window_fn,
         pad_end=False,
     )
+    if normalize:
+        wav_stft = tf.divide(wav_stft, nfft) # normalize
 
     # if using inverse stft,
     # inverse_stft = tf.signal.inverse_stft(
