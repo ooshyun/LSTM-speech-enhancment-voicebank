@@ -90,6 +90,7 @@ def load_dataset(args):
     num_segments = args.model.n_segment
     normalization = args.dset.normalize
     fft_normalization = args.dset.fft_normalize
+    fft_tf_normalization = args.model.fft_tf_normalization
     top_db = args.dset.top_db
     train_split = int(args.dset.split * 100)
 
@@ -160,7 +161,7 @@ def load_dataset(args):
                     noise_stft_real,
                     noise_stft_imag,
                 ) = stft_tensorflow(
-                    noisy, nfft=nfft, hop_length=hop_length, center=center
+                    noisy, nfft=nfft, hop_length=hop_length, center=center, normalize=fft_tf_normalization
                 )
                 (
                     clean_stft_magnitude,
@@ -168,7 +169,7 @@ def load_dataset(args):
                     clean_stft_real,
                     clean_stft_imag,
                 ) = stft_tensorflow(
-                    clean, nfft=nfft, hop_length=hop_length, center=center
+                    clean, nfft=nfft, hop_length=hop_length, center=center, normalize=fft_tf_normalization
                 )
 
             noise_stft_magnitude = tf.reshape(
