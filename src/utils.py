@@ -14,6 +14,11 @@ import tensorflow as tf
 def limit_gpu_tf(memory_size):
     """Reference. https://www.tensorflow.org/guide/gpu
     """
+    # device_name = tf.test.gpu_device_name()
+    # if device_name != "/device:GPU:0":
+    #     raise SystemError("GPU device not found")
+    # print("Found GPU at: {}".format(device_name))
+
     gpus = tf.config.list_physical_devices('GPU')
     if gpus:
         # Restrict TensorFlow to only allocate 1GB of memory on the first GPU

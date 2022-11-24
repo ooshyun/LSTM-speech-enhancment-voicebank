@@ -13,7 +13,7 @@ from tensorflow.python.client import device_lib
 
 # custom api
 from src.distrib import load_dataset, load_model, load_callback
-from src.utils import load_yaml, obj2dict
+from src.utils import load_yaml, obj2dict, limit_gpu_tf
 
 
 def train(args):
@@ -70,10 +70,7 @@ def train(args):
 
 
 if __name__ == "__main__":
-    device_name = tf.test.gpu_device_name()
-    if device_name != "/device:GPU:0":
-        raise SystemError("GPU device not found")
-    print("Found GPU at: {}".format(device_name))
+    limit_gpu_tf(12288) # 12G
 
     path_conf = "./conf/config.yaml"
     config = load_yaml(path_conf)
