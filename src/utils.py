@@ -11,6 +11,21 @@ from resampy import resample
 import soundfile as sf
 import tensorflow as tf
 
+def limit_gpu_tf(memory_size):
+    """Reference. https://www.tensorflow.org/guide/gpu
+    """
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+        try:
+            tf.config.set_logical_device_configuration(
+                gpus[0],
+                [tf.config.LogicalDeviceConfiguration(memory_limit=memory_size)])
+            logical_gpus = tf.config.list_logical_devices('GPU')
+            print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+        except RuntimeError as e:
+            # Virtual devices must be set before GPUs have been initialized
+            print(e)
 
 def inverse_stft_transform(stft_features, window_length, overlap):
     return librosa.istft(stft_features, win_length=window_length, hop_length=overlap)

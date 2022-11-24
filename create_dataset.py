@@ -3,27 +3,9 @@ from src.preprocess.dataset import DatasetVoiceBank
 import os
 import pickle
 import warnings
-from src.utils import load_yaml
+from src.utils import load_yaml, limit_gpu_tf
 
 warnings.filterwarnings(action="ignore")
-
-def limit_gpu_tf():
-    """Reference. https://www.tensorflow.org/guide/gpu
-    """
-    from tensorflow import config
-    gpus = config.list_physical_devices('GPU')
-    if gpus:
-        # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
-        try:
-            config.set_logical_device_configuration(
-                gpus[0],
-                [config.LogicalDeviceConfiguration(memory_limit=768)])
-            logical_gpus = config.list_logical_devices('GPU')
-            print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-        except RuntimeError as e:
-            # Virtual devices must be set before GPUs have been initialized
-            print(e)
-
 
 def preprocess_data(args):
     file_name = f"voicebank_dataset_list_train_{int(args.dset.split*100)}_val_{int(100-args.dset.split*100)}.pkl"
@@ -102,7 +84,7 @@ def preprocess_data(args):
 
 
 if __name__ == "__main__":
-    limit_gpu_tf()
+    limit_gpu_tf(768)
 
     path_conf = "./conf/config.yaml"
     config = load_yaml(path_conf)
