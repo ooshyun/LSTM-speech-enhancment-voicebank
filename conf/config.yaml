@@ -4,8 +4,8 @@ default:
 
 dummy:
 dset:
-  wav: '/Users/seunghyunoh/workplace/research/NoiseReduction/Tiny-SpeechEnhancement/data/VoiceBankDEMAND/DS_10283_2791'
-  # wav: '/home/daniel0413/workplace/project/SpeechEnhancement/TinyML/data/VoiceBankDEMAND'
+  # wav: '/Users/seunghyunoh/workplace/research/NoiseReduction/Tiny-SpeechEnhancement/data/VoiceBankDEMAND/DS_10283_2791'
+  wav: '/home/daniel0413/workplace/project/SpeechEnhancement/TinyML/data/VoiceBankDEMAND'
   split: 0.9
   sample_rate: 16000
   segment: 1.008
@@ -13,6 +13,11 @@ dset:
   n_fft: 512
   win_length: 512
   hop_length: 256
+  # hop_length: 128
+  # n_fft: 256
+  # win_length: 256
+  # hop_length: 128
+  # hop_length: 64
   channels: 1
   top_db: 100
   # fft: True
@@ -30,8 +35,13 @@ dset:
 model:
   name: 'lstm'
   lstm_layer: 256
+  # lstm_layer: 128
   n_feature: 257
   n_segment: 64 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
+  # n_segment: 127 # 1.008 sec in 512 window, 128 hop, sr = 16000 Hz
+  # n_feature: 129
+  # n_segment: 127 # 1.008 sec in 256 window, 128 hop, sr = 16000 Hz
+  # n_segment: 253 # 1.008 sec in 256 window, 64 hop, sr = 16000 Hz
   n_mels: 128
   f_min: 125
   f_max: 8000
@@ -55,7 +65,7 @@ optim:
 
 seed: 10
 batch_size: 512
-steps: 10
-epochs: 1
+steps: 1000
+epochs: 400
 folder: './result'
 debug: True
