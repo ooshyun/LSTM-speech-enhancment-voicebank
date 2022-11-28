@@ -64,6 +64,7 @@ def load_model(args):
     model.summary()
 
     if args.model.path is not None:
+        print("Loading Model...")
         if args.model.ckpt:
             model.load_weights(os.path.join(args.model.path, args.model.ckpt))
         else:
@@ -73,7 +74,6 @@ def load_model(args):
 
     if model_name == "lstm":
         from .lstm import compile_model
-
         compile_model(model, args)
 
     return model
