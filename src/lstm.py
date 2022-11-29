@@ -283,6 +283,7 @@ def build_model_lstm(args, power=0.3):
     inputs_phase = inputs[..., 1, :, :, :]
 
     mask = tf.squeeze(inputs_amp, axis=1)  # merge channel
+    
     mask = MelSpec(args)(mask)
     mask = LSTM(args.model.lstm_layer, activation="tanh", return_sequences=True)(mask)
     mask = LSTM(args.model.lstm_layer, activation="tanh", return_sequences=True)(mask)
@@ -290,7 +291,7 @@ def build_model_lstm(args, power=0.3):
     mask = BatchNormalization()(mask)
 
     mask = Dense(
-        args.model.lstm_layer // 2,
+        args.model.n_mels,
         activation="relu",
         use_bias=True,
         kernel_initializer="glorot_uniform", #glorot_uniform
@@ -299,7 +300,7 @@ def build_model_lstm(args, power=0.3):
         mask
     )  # [TODO] check initialization method
     mask = Dense(
-        args.model.lstm_layer // 2,
+        args.model.n_mels,
         activation="sigmoid",
         use_bias=True,
         kernel_initializer="glorot_uniform",
@@ -309,6 +310,7 @@ def build_model_lstm(args, power=0.3):
     )  # [TODO] check initialization method
 
     mask = InverseMelSpec(args)(mask)
+
     mask = tf.expand_dims(mask, axis=1)  # expand channel
 
     outputs_amp = Multiply()(
