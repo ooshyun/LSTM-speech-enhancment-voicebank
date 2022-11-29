@@ -17,8 +17,12 @@ def SDR(reference, estimation, sr=16000):
     IEEE Transactions on Audio, Speech and Language Processing, 14(4), 1462-1469.
 
     """
-    reference_numpy = reference.numpy()
-    estimation_numpy = estimation.numpy()
+    if not isinstance(reference, np.ndarray):
+        reference_numpy = reference.numpy()
+        estimation_numpy = estimation.numpy()
+    else:
+        reference_numpy = reference
+        estimation_numpy = estimation 
     sdr_batch = np.empty(shape=(reference_numpy.shape[0], reference_numpy.shape[1]))
 
     for batch in range(reference_numpy.shape[0]):
@@ -59,8 +63,12 @@ def SI_SDR(reference, estimation, sr=16000):
 
 
 def STOI(reference, estimation, sr=16000):
-    reference_numpy = reference.numpy()
-    estimation_numpy = estimation.numpy()
+    if not isinstance(reference, np.ndarray):
+        reference_numpy = reference.numpy()
+        estimation_numpy = estimation.numpy()
+    else:
+        reference_numpy = reference
+        estimation_numpy = estimation 
     stoi_batch = np.empty(shape=(reference_numpy.shape[0], reference_numpy.shape[1]))
     for batch in range(reference_numpy.shape[0]):
         for ch in range(reference_numpy.shape[1]):
@@ -76,8 +84,12 @@ def STOI(reference, estimation, sr=16000):
 
 
 def WB_PESQ(reference, estimation, sr=16000):
-    reference_numpy = reference.numpy()
-    estimation_numpy = estimation.numpy()
+    if not isinstance(reference, np.ndarray):
+        reference_numpy = reference.numpy()
+        estimation_numpy = estimation.numpy()
+    else:
+        reference_numpy = reference
+        estimation_numpy = estimation        
     num_batch, num_channel = reference_numpy.shape[0], reference_numpy.shape[1]
     pesq_batch = np.empty(shape=(num_batch, num_channel))
 
@@ -102,8 +114,12 @@ def WB_PESQ(reference, estimation, sr=16000):
 
 
 def NB_PESQ(reference, estimation, sr=16000):
-    reference_numpy = reference.numpy()
-    estimation_numpy = estimation.numpy()
+    if not isinstance(reference, np.ndarray):
+        reference_numpy = reference.numpy()
+        estimation_numpy = estimation.numpy()
+    else:
+        reference_numpy = reference
+        estimation_numpy = estimation 
     score = 0
 
     for ref_batch, est_batch in zip(reference_numpy, estimation_numpy):
