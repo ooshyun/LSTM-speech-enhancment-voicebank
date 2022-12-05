@@ -174,8 +174,7 @@ The repository consitute configuration, create dataset after preprocess, train, 
 ```
 
 ### 6. Result
-Will be updated....
-
+The results links to [this](https://github.com/ooshyun/LSTM-speech-enhancment-voicebank/blob/dev/history/221122-1127/README.md).
 
 ## Reference
 - Train and Validate: https://keras.io/examples/audio/transformer_asr/
