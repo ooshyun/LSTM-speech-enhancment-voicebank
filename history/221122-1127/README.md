@@ -19,7 +19,7 @@ Those variable is the basic component when we design the model.
 - Hop size: 128
 - Hop size / LSTM size: 128 / 128
 
-Each of components can be adjusted to reduce training time and the gap between training and validation for confirming performance. This results is because when recovering STFT to time samples for evaluation, the scaling factor is not included, and it effects the difference. However, the sound for testing is quite better than 50% overlap. This project is contiuning to implementation in embedded device. The detail comparison is [this link](https://github.com/ooshyun/LSTM-speech-enhancment-voicebank/blob/dev/history/221122-1127/report.pdf). And, I attached details as below also.
+Each of components can be adjusted to reduce training time and the gap between training and validation for confirming performance. This project is contiuning to implementation in embedded device. The detail comparison is [this link](./history/221122-1127/report.pdf). And, I attached details as below also.
 
 ## Variable
 - Default setting
