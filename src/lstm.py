@@ -359,7 +359,7 @@ def compile_model(model: Model, args):
                 os.path.join(args.model.path, "optimizer/optim.json")
             )["optimizer"]
             dummy_batch_size = 1
-            dummy_noise_tensor = tf.ones(
+            dummy_tensor = tf.ones(
                 shape=(
                     dummy_batch_size,
                     2,
@@ -377,21 +377,29 @@ def compile_model(model: Model, args):
                     args.model.n_feature,
                 )
             )
+
             dummpy_model.compile(
                 optimizer=optimizer,
                 loss=loss_function,
             )
             dummpy_model.fit(
-                x=dummy_noise_tensor, y=dummy_clean_tensor, batch_size=dummy_batch_size
+                x=dummy_tensor, y=dummy_clean_tensor, batch_size=dummy_batch_size
             )
-
+            
             del (
                 dummpy_model,
-                dummy_noise_tensor,
+                dummy_tensor,
                 dummy_clean_tensor,
             )  # [TODO] How to remove object and check it removed?
+            
+            # Currently, when using saved optimizer, the next optimizer loading has almost double size
+            # The reason to load dummy model is when optimizer didn't compile, then it didn't have the optimizer weight
+            # Ex. the case fo LSTM model: 25 -> 49, so it temporaily saved half of len
+            # This tested in test_model and optimizer/model weight is same between saving and loading
+            # [TODO] How to load optimizer weights? 
+            len_optimizer = len(optimizer.get_weights()) 
+            optimizer.set_weights(optimizer_state[:len_optimizer])
 
-            optimizer.set_weights(optimizer_state)
             tf.print("Optimizer was loaded!")
         else:
             tf.print("Optimizer was not existed!")

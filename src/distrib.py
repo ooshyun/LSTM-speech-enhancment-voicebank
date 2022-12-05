@@ -41,14 +41,14 @@ def load_callback(path, args):
     checkpoint_callback = keras.callbacks.ModelCheckpoint(
         filepath=checkpoint_save_path, test="val_loss", save_best_only=True
     )
-    time_callback = TimeHistory(filepath=console_log_save_path)
+    # time_callback = TimeHistory(filepath=console_log_save_path)
     # histogram_freq=0, write_graph=True: for monitoring the weight histogram
 
     return [
         early_stopping_callback,
         tensorboard_callback,
         checkpoint_callback,
-        time_callback,
+        # time_callback,
     ]
 
 

@@ -1,0 +1,6 @@
+**
+!model
+!optimizer
+!logs
+!config.yaml
+!.gitignore

@@ -1,0 +1,58 @@
+default:
+  - _self_
+  - dset: VoiceBankDEMAND
+
+dummy:
+dset:
+  # wav: '/Users/seunghyunoh/workplace/study/NoiseReduction/Tiny-SpeechEnhancement/data/VoiceBankDEMAND/DS_10283_2791'
+  wav: '/home/daniel0413/workplace/project/SpeechEnhancement/TinyML/data/VoiceBankDEMAND'
+  split: 0.9
+  sample_rate: 16000
+  segment: 1.008
+  # lstm model
+  n_fft: 512
+  win_length: 512
+  hop_length: 256
+  channels: 1
+  top_db: 100
+  fft: True
+  # fft: False
+  center: True
+  save_path: "./data"
+  # save_path: "/home/olive-samba/sambashare/data/Sound/VoiceBankDEMAND/process"
+  fft_normalize: True
+  # normalize: 'none'
+  normalize: 'z-score'
+  # segment_normalization: True # if this paramter is not existed, then default is False
+  segment_normalization: False 
+
+model:
+  name: 'lstm'
+  lstm_layer: 256
+  n_feature: 257
+  n_segment: 64 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
+  n_mels: 128
+  f_min: 125
+  f_max: 8000
+  metric: ['sisdr']
+  path:
+  ckpt:
+  # path: './result/lstm/20221108-174727'
+  # path: './result/lstm/20221103-213029_topdb100_mae'
+  # ckpt: 'checkpoint/model-01-0.0002.hdf5'
+
+optim:
+  optim: 'adam'
+  lr: 0.0003
+  # optim: 'sgd'
+  # lr: 0.001
+  # loss: 'mse'
+  loss: 'rmse'
+  # loss: 'psa'
+
+seed: 10
+batch_size: 512
+steps: 1000
+epochs: 300
+folder: './result'
+debug: False
