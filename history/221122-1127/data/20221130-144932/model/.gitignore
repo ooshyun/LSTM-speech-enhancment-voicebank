@@ -1,0 +1,5 @@
+**
+!*.pb
+!variables/
+!assets/
+!.gitignore

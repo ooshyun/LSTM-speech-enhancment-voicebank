@@ -359,7 +359,7 @@ def compile_model(model: Model, args):
                 os.path.join(args.model.path, "optimizer/optim.json")
             )["optimizer"]
             dummy_batch_size = 1
-            dummy_noise_tensor = tf.ones(
+            dummy_tensor = tf.ones(
                 shape=(
                     dummy_batch_size,
                     2,
@@ -377,17 +377,18 @@ def compile_model(model: Model, args):
                     args.model.n_feature,
                 )
             )
+
             dummpy_model.compile(
                 optimizer=optimizer,
                 loss=loss_function,
             )
             dummpy_model.fit(
-                x=dummy_noise_tensor, y=dummy_clean_tensor, batch_size=dummy_batch_size
+                x=dummy_tensor, y=dummy_clean_tensor, batch_size=dummy_batch_size
             )
-
+            
             del (
                 dummpy_model,
-                dummy_noise_tensor,
+                dummy_tensor,
                 dummy_clean_tensor,
             )  # [TODO] How to remove object and check it removed?
             

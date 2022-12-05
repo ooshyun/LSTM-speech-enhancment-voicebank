@@ -1,7 +1,29 @@
 # Test LSTM Model in speech enhancment task
 
+This is comparision using LSTM model in Speech Enhancement task. It used several types of variables to confirm the baseline.
+
+- Loss function, Split ratio, train vs valid, Dense layer initial method, Time Period of Normalization,batch size, Batch Normalization, FFT size, LSTM Layer, Hop size, Hop size / LSTM size
+
+Those variable is the basic component when we design the model. 
+
+[TL;DR] The difference between variable is not too big, but the most performance setting is as below,
+
+- Loss function     : phase sensitive approximate
+- Split ratio       : 90:10
+- Dense layer initial method : almost same
+- Time Period of Normalization: entire
+- Batch size: 512
+- Batch Normalization: O
+- FFT size: 512
+- LSTM Layer: 256
+- Hop size: 128
+- Hop size / LSTM size: 128 / 128
+
+Each of components can be adjusted to reduce training time and the gap between training and validation for confirming performance. This results is because when recovering STFT to time samples for evaluation, the scaling factor is not included, and it effects the difference. However, the sound for testing is quite better than 50% overlap. This project is contiuning to implementation in embedded device. So it will be on [--](). The detail comparison is [this link](). And, I attached details as belwo also.
+
 ## Variable
-- Default setting, 20221123-183326
+- Default setting
+- 20221123-183326
     - Total dataset: 75805 8444
     - Train 90, Validation 10
     - Normalization: z-score
@@ -25,7 +47,6 @@
     - time in each epoch 
     - total time/the number of iternation until convex
     - the difference between train and validation
-    - [TODO] Test of SISDR and Loss at Convex
     
 - Not include normalization method, z-score is the best performance in SISDR
 
@@ -62,6 +83,22 @@
 - Batch Norm 
     - batch norm O : 20221123-183326
     - batch norm X : 20221127-220836
+
+- FFT size
+    - 512: 20221123-183326
+    - 256: 20221128-081941
+
+- LSTM Layer
+    - 256: 20221123-183326
+    - 128: 20221128-151953 - 20221129-072205
+
+- Hop size
+    - 256: 20221123-183326
+    - 128: 20221201-190504 - 20221202-132108
+
+- Hop size / LSTM size
+    - 256/256: 20221123-183326
+    - 128/128: 20221129-115620 - 20221130-144932
 
 ## History
 
@@ -188,3 +225,59 @@
     - Dense: glorot_uniform
     - batch: 512
     - Batch Noramlization X
+
+- 20221128-081941, 13.48, 13.31
+    - Train 90 Validation 10
+    - Normalization: z-score
+    - Segmentation Norm: False
+    - FFT normalized by fft size
+    - Time
+    - fft 256
+    - hop size 128
+    - lstm layer 256
+    - loss psa
+    - Dense: glorot_uniform
+    - batch: 512
+    - Batch Noramlization O
+
+- 20221128-151953 - 20221129-072205, 14.94, 14.77
+    - Train 90 Validation 10
+    - Normalization: z-score
+    - Segmentation Norm: False
+    - FFT normalized by fft size
+    - Time
+    - fft 512
+    - hop size 256
+    - lstm layer 128
+    - loss psa 
+    - Dense: glorot_uniform
+    - batch: 512
+    - Batch Noramlization O		
+
+- 20221129-115620 - 20221130-144932, 15.24, 15.11
+    - Train 90 Validation 10
+    - Normalization: z-score
+    - Segmentation Norm: False
+    - FFT normalized by fft size
+    - Time
+    - fft 512
+    - hop size 128
+    - lstm layer 128
+    - loss psa 
+    - Dense: glorot_uniform
+    - batch: 512
+    - Batch Noramlization O	
+
+- 20221201-190504 - 20221202-132108, 15.28, 15.03
+    - Train 90 Validation 10
+    - Normalization: z-score
+    - Segmentation Norm: False
+    - FFT normalized by fft size
+    - Time
+    - fft 512
+    - hop size 128
+    - lstm layer 256
+    - loss psa 
+    - Dense: glorot_uniform
+    - batch: 512
+    - Batch Noramlization O	

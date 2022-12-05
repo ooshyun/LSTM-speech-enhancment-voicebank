@@ -68,7 +68,9 @@ class ModelSanityCheck(unittest.TestCase):
             assert (diff < 1e-6).all()
 
     def test_optim_multiple_load(self):
-        """python -m unittest -v test.test_model.ModelSanityCheck.test_optim_multiple_load"""
+        """
+        python -m unittest -v test.test_model.ModelSanityCheck.test_optim_multiple_load
+        """
         import os
         import shutil
         from src.distrib import load_model
