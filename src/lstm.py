@@ -8,6 +8,7 @@ from keras.layers import (
     Multiply,
 )
 
+import keras.layers
 import tensorflow as tf
 from keras import Model
 import keras.regularizers
@@ -279,8 +280,13 @@ def build_model_lstm(args, power=0.3):
     inputs = Input(
         shape=[2, 1, args.model.n_segment, args.model.n_feature], name="input"
     )
+
+    keras.layers.Add()
     inputs_amp = inputs[..., 0, :, :, :]
     inputs_phase = inputs[..., 1, :, :, :]
+    
+    # inputs_amp = tf.raw_ops.TensorListGetItem()
+    # inputs_phase = tf.raw_ops.TensorListGetItem()
 
     mask = tf.squeeze(inputs_amp, axis=1)  # merge channel
     
@@ -316,6 +322,11 @@ def build_model_lstm(args, power=0.3):
     outputs_amp = Multiply()(
         [inputs_amp, mask]
     )
+
+    outputs = tf.raw_ops.TensorListStack()
+    
+    keras.layers.Concatenate()
+
     outputs = tf.stack(
         [outputs_amp, inputs_phase], axis=-4
     )  # ..., mag/phase, ch, num_frame, freq_bin
