@@ -32,8 +32,13 @@ def limit_gpu_tf(memory_size):
             # Virtual devices must be set before GPUs have been initialized
             print(e)
 
-def inverse_stft_transform(stft_features, window_length, overlap):
-    return librosa.istft(stft_features, win_length=window_length, hop_length=overlap)
+def inverse_stft_transform(stft_features, window_length, hop_length, center=True):
+    return librosa.istft(
+            stft_features,
+            win_length=window_length,
+            hop_length=hop_length,
+            center=center,
+        )
 
 
 def revert_features_to_audio(
@@ -170,6 +175,28 @@ def get_tf_feature_mag_phase_pair(
     # print(_bytes_feature(u'test_bytes'.encode('utf-8')))
     return example
 
+def get_tf_feature_real_imag_pair(
+    noisy_stft_real, clean_stft_real, noise_stft_imag, clean_stft_imag
+):
+    noisy_stft_real = noisy_stft_real.astype(np.float32).tostring()
+    clean_stft_real = clean_stft_real.astype(np.float32).tostring()
+    noise_stft_imag = noise_stft_imag.astype(np.float32).tostring()
+    clean_stft_imag = clean_stft_imag.astype(np.float32).tostring()
+
+    example = tf.train.Example(
+        features=tf.train.Features(
+            feature={
+                "noisy_stft_real": _bytes_feature(noisy_stft_real),
+                "clean_stft_real": _bytes_feature(clean_stft_real),
+                "noisy_stft_imag": _bytes_feature(noise_stft_imag),
+                "clean_stft_imag": _bytes_feature(clean_stft_imag),
+            }
+        )
+    )
+    # print(_bytes_feature(b'test_string'))
+    # print(_bytes_feature(u'test_bytes'.encode('utf-8')))
+    return example
+
 
 def get_tf_feature_sample_pair(noisy, clean):
     noisy = noisy.astype(np.float32).tostring()
@@ -206,13 +233,7 @@ def stft_tensorflow(wav, nfft, hop_length, center=True, normalize=True):
     #   window_fn=tf.signal.inverse_stft_window_fn(
     #      frame_step=overlap, forward_window_fn=window_fn))
 
-    # [TODO] Phase aware process
-    wav_stft_mag_features = tf.abs(wav_stft)
-    wav_stft_phase = tf.experimental.numpy.angle(wav_stft)
-    wav_stft_real = tf.math.real(wav_stft)
-    wav_stft_imag = tf.math.imag(wav_stft)
-
-    return wav_stft_mag_features, wav_stft_phase, wav_stft_real, wav_stft_imag
+    return wav_stft
 
 
 class TimeHistory(tf.keras.callbacks.Callback):

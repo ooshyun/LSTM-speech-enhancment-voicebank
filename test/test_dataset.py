@@ -1,5 +1,7 @@
 import unittest
-from src.utils import load_yaml
+import numpy as np
+from src.utils import load_yaml, inverse_stft_transform
+from src.preprocess.feature_extractor import FeatureExtractor
 
 save_path = "./test/result/test_model"
 
@@ -15,18 +17,12 @@ class DatasetSanityCheck(unittest.TestCase):
         train_dataset, test_dataset = load_dataset(args)
 
         for train_data, test_data in zip(train_dataset, test_dataset):
-            print(test_data[-1][-1])
-            break
+            print(len(train_data), len(test_data))
+            print(train_data[0].shape, train_data[1].shape)
 
     def test_fit_model(self):
-        """python -m unittest -v test.test_dataset.DatasetSanityCheck.test_load
-        When doing regenerating speech, this needs mean and std metadata, but in model.fit function in tensorflow,
-        they cannot pass the file name when compute loss function and metric.
-
-        If we need to recover the original signal, it should not use fit function
-
-        fit -> epoch, iter_dataset -> model.train_step -> compute_loss ->
-        [V not pass string object] y_true, y_pred shape check -> loss -> optimizer -> computer metrics
+        """
+        python -m unittest -v test.test_dataset.DatasetSanityCheck.test_fit_model
         """
         from src.distrib import load_dataset, load_model
 

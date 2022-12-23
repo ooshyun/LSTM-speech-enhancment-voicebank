@@ -4,8 +4,8 @@ default:
 
 dummy:
 dset:
-  # wav: '/Users/seunghyunoh/workplace/research/NoiseReduction/Tiny-SpeechEnhancement/data/VoiceBankDEMAND/DS_10283_2791'
-  wav: '/home/daniel0413/workplace/project/SpeechEnhancement/TinyML/data/VoiceBankDEMAND'
+  wav: '/Users/seunghyunoh/workplace/research/NoiseReduction/Tiny-SpeechEnhancement/data/VoiceBankDEMAND/DS_10283_2791'
+  # wav: '/home/daniel0413/workplace/project/SpeechEnhancement/TinyML/data/VoiceBankDEMAND'
   split: 0.9
   sample_rate: 16000
   segment: 1.008
@@ -20,12 +20,10 @@ dset:
   # hop_length: 64
   channels: 1
   top_db: 100
-  # fft: True
-  fft: False
+  fft: True
+  # fft: False
   center: True
   save_path: "./data"
-  # fft_normalize: True
-  fft_normalize: False
   # normalize: 'none'
   # normalize: 'min-max'
   normalize: 'z-score'
@@ -45,8 +43,8 @@ model:
   n_mels: 128
   f_min: 125
   f_max: 8000
-  fft_tf_normalization: True
-  metric: ['sisdr']
+  fft_normalization: True # False
+  metric: ['sisdr', ] # 'nb-pesq', 'sdr', 'stoi', 'wb-pesq', 
   path:
   ckpt:
   # path: './result/lstm/20221108-174727'
@@ -61,11 +59,12 @@ optim:
   # loss: 'mse'
   # loss: 'rmse'
   # loss: 'ideal-mag'
-  loss: 'psa'
+  # loss: 'psa'
+  loss: 'psa-bose'
 
 seed: 10
 batch_size: 512
-steps: 1000
-epochs: 400
+steps: 5
+epochs: 1
 folder: './result'
 debug: True

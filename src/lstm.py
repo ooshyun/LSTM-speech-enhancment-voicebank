@@ -19,13 +19,12 @@ from .utils import load_json
 
 from .metrics import (
     SI_SDR,
-    # WB_PESQ,
-    # SDR,
-    # STOI,
-    # NB_PESQ
+    WB_PESQ,
+    SDR,
+    STOI,
+    NB_PESQ
 )
 from .loss import (
-    convert_stft_from_amplitude_phase,
     mean_square_error_amplitdue_phase,
     mean_absolute_error_amplitdue_phase,
     ideal_amplitude_mask,
@@ -124,7 +123,7 @@ class InverseMelSpec(Layer):
 
 
 class CustomMetric(tf.keras.metrics.Metric):
-    def __init__(self, metric, name="sisdr", **kwargs):
+    def __init__(self, metric, name="mse", **kwargs):
         super(CustomMetric, self).__init__(name=name, **kwargs)
         self.metric = metric
         self.metric_name = name
@@ -147,7 +146,7 @@ class CustomMetric(tf.keras.metrics.Metric):
             loss_function = ideal_amplitude_mask
         elif self.metric == "psa":
             loss_function = phase_sensitive_spectral_approximation_loss
-        elif self.metric == "psa_bose":
+        elif self.metric == "psa-bose":
             loss_function = phase_sensitive_spectral_approximation_loss_bose
         else:
             raise NotImplementedError(f"Loss '{self.metric}' is not implemented")
@@ -182,8 +181,8 @@ class CustomMetric(tf.keras.metrics.Metric):
 
 class SpeechMetric(tf.keras.metrics.Metric):
     """
-    [V] SI_SDR,     pass, after function check, value check
-    [V] WB_PESQ,    pass, after function check, value check
+    [V] SI_SDR,     pass
+    [V] WB_PESQ,    pass
     [ ] STOI,       fail, np.matmul, (15, 257) @ (257, 74) -> OMP: Error #131: Thread identifier invalid, zsh: abort
     [ ] NB_PESQ     fail, ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
     [ ] SDR,        fail, MP: Error #131: Thread identifier invalid. zsh: abort      python train.py -> maybe batch related?
@@ -202,29 +201,29 @@ class SpeechMetric(tf.keras.metrics.Metric):
 
     def update_state(self, y_true, y_pred, sample_weight=None):
         if self.metric_name == "sisdr":
-            func_metric = SI_SDR
-        # elif self.metric_name == 'pesq':
-        #   func_metric=PESQ
-        # elif self.metric_name == 'stoi':
-        #   func_metric=STOI
+            func_metric=SI_SDR
+        elif self.metric_name == 'wb-pesq':
+            func_metric=WB_PESQ
+        elif self.metric_name == 'stoi':
+            func_metric=STOI
+        elif self.metric_name == 'nb-pesq':
+            func_metric=NB_PESQ
+        elif self.metric_name == 'sdr':
+            func_metric=SDR
         else:
             raise NotImplementedError(
                 f"Metric function '{self.metric}' is not implemented"
             )
-        reference_stft_librosa = convert_stft_from_amplitude_phase(y_true)
-        estimation_stft_librosa = convert_stft_from_amplitude_phase(y_pred)
 
         # related with preprocess normalized fft
         if self.normalize:
-            reference_stft_librosa *= 2 * (
-                reference_stft_librosa.shape[-1] - 1
-            )  # [TODO] verfication
-            estimation_stft_librosa *= 2 * (reference_stft_librosa.shape[-1] - 1)
+            y_true *= 2 * (y_true.shape[-1] - 1)  
+            y_pred *= 2 * (y_pred.shape[-1] - 1)
 
         window_fn = tf.signal.hamming_window
 
         reference = tf.signal.inverse_stft(
-            reference_stft_librosa,
+            y_true,
             frame_length=self.n_fft,
             frame_step=self.hop_length,
             window_fn=tf.signal.inverse_stft_window_fn(
@@ -233,7 +232,7 @@ class SpeechMetric(tf.keras.metrics.Metric):
         )
 
         estimation = tf.signal.inverse_stft(
-            estimation_stft_librosa,
+            y_pred,
             frame_length=self.n_fft,
             frame_step=self.hop_length,
             window_fn=tf.signal.inverse_stft_window_fn(
@@ -270,27 +269,37 @@ class SpeechMetric(tf.keras.metrics.Metric):
     def from_config(cls, config):
         return cls(**config)
 
+class Magnitude(keras.layers.Layer):
+    def __init__(
+        self,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        
+    def call(self, inputs, training=True):
+        assert inputs.dtype == tf.complex64
+        outputs = tf.math.abs(inputs)
+        return outputs
 
-def build_model_lstm(args, power=0.3):
-    """
-    # [TODO] How to print a tensor while training?
-        Kernal Initialization
-        Bias   Initizlization
-    """
+def build_model_lstm(args):
     inputs = Input(
-        shape=[2, 1, args.model.n_segment, args.model.n_feature], name="input"
+        shape=[1, args.model.n_segment, args.model.n_feature], 
+        name="input", 
+        dtype=tf.complex64,
     )
-
-    keras.layers.Add()
-    inputs_amp = inputs[..., 0, :, :, :]
-    inputs_phase = inputs[..., 1, :, :, :]
     
-    # inputs_amp = tf.raw_ops.TensorListGetItem()
-    # inputs_phase = tf.raw_ops.TensorListGetItem()
+    mask = Magnitude()(inputs)
 
-    mask = tf.squeeze(inputs_amp, axis=1)  # merge channel
+    print(mask.shape, mask.dtype)
+
+    mask = tf.squeeze(mask, axis=1)  # merge channel
     
+    print(mask.shape, mask.dtype)
+
     mask = MelSpec(args)(mask)
+
+    print(mask.shape, mask.dtype)
+
     mask = LSTM(args.model.lstm_layer, activation="tanh", return_sequences=True)(mask)
     mask = LSTM(args.model.lstm_layer, activation="tanh", return_sequences=True)(mask)
 
@@ -300,11 +309,11 @@ def build_model_lstm(args, power=0.3):
         args.model.n_mels,
         activation="relu",
         use_bias=True,
-        kernel_initializer="glorot_uniform", #glorot_uniform
+        kernel_initializer="glorot_uniform",
         bias_initializer="zeros",
     )(
         mask
-    )  # [TODO] check initialization method
+    )  
     mask = Dense(
         args.model.n_mels,
         activation="sigmoid",
@@ -313,23 +322,24 @@ def build_model_lstm(args, power=0.3):
         bias_initializer="zeros",
     )(
         mask
-    )  # [TODO] check initialization method
+    )  
+
+    print(mask.shape, mask.dtype)
 
     mask = InverseMelSpec(args)(mask)
 
-    mask = tf.expand_dims(mask, axis=1)  # expand channel
+    print(mask.shape, mask.dtype)
 
-    outputs_amp = Multiply()(
-        [inputs_amp, mask]
+    mask = tf.expand_dims(mask, axis=1)  # expand channel
+    mask = tf.cast(mask, dtype=tf.complex64)
+
+    print(mask.shape, mask.dtype)
+
+    outputs = Multiply()(
+        [inputs, mask]
     )
 
-    outputs = tf.raw_ops.TensorListStack()
-    
-    keras.layers.Concatenate()
-
-    outputs = tf.stack(
-        [outputs_amp, inputs_phase], axis=-4
-    )  # ..., mag/phase, ch, num_frame, freq_bin
+    print(outputs.shape, outputs.dtype)
 
     model = Model(inputs=inputs, outputs=outputs)
     return model
@@ -357,10 +367,10 @@ def compile_model(model: Model, args):
         loss_function = ideal_amplitude_mask
     elif args.optim.loss == "psa":
         loss_function = phase_sensitive_spectral_approximation_loss
-    elif args.optim.loss == "psa_bose":
+    elif args.optim.loss == "psa-bose":
         loss_function = phase_sensitive_spectral_approximation_loss_bose
     else:
-        raise NotImplementedError(f"Optimizer {args.optim.optim} is not implemented")
+        raise NotImplementedError(f"Loss '{self.metric}' is not implemented")
 
     if args.model.path is not None:
         if "optimizer" in os.listdir(args.model.path):  # optimizer folder check
@@ -373,20 +383,20 @@ def compile_model(model: Model, args):
             dummy_tensor = tf.ones(
                 shape=(
                     dummy_batch_size,
-                    2,
                     1,
                     args.model.n_segment,
                     args.model.n_feature,
-                )
+                ),
+                dtype=tf.complex64,
             )
             dummy_clean_tensor = tf.ones(
                 shape=(
                     dummy_batch_size,
-                    2,
                     1,
                     args.model.n_segment,
                     args.model.n_feature,
-                )
+                ), 
+                dtype=tf.complex64,
             )
 
             dummpy_model.compile(
@@ -419,7 +429,7 @@ def compile_model(model: Model, args):
         SpeechMetric(
             n_fft=args.dset.n_fft,
             hop_length=args.dset.hop_length,
-            normalize=args.dset.fft_normalize,
+            normalize=args.model.fft_normalization,
             name=metric_name,
         )
         for metric_name in args.model.metric

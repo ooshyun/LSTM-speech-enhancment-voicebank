@@ -24,8 +24,6 @@ dset:
   fft: False
   center: True
   save_path: "./data"
-  # fft_normalize: True
-  fft_normalize: False
   # normalize: 'none'
   # normalize: 'min-max'
   normalize: 'z-score'
@@ -45,7 +43,7 @@ model:
   n_mels: 128
   f_min: 125
   f_max: 8000
-  fft_tf_normalization: True
+  fft_normalization: True
   metric: ['sisdr']
   path: 
   ckpt:
