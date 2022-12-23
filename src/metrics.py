@@ -6,6 +6,7 @@ from museval.metrics import bss_eval
 
 import logging
 
+count = 0
 
 def SDR(reference, estimation, sr=16000):
     """Signal to Distortion Ratio (SDR) from museval
@@ -47,19 +48,18 @@ def SI_SDR(reference, estimation, sr=16000):
     References:
         SDR- Half- Baked or Well Done? (http://www.merl.com/publications/docs/TR2019-013.pdf)
     """
-    estimation, reference = np.broadcast_arrays(estimation, reference)
     reference_energy = np.sum(reference**2, axis=-1, keepdims=True)
 
     optimal_scaling = (
-        np.sum(reference * estimation, axis=-1, keepdims=True) / reference_energy
+        np.sum(estimation*reference, axis=-1, keepdims=True) / (reference_energy + np.finfo(dtype=reference_energy.dtype).eps)
     )
 
     projection = optimal_scaling * reference
     noise = estimation - projection
 
-    ratio = np.sum(projection**2, axis=-1) / np.sum(noise**2, axis=-1)
+    ratio = np.sum(projection**2, axis=-1) / (np.sum(noise**2, axis=-1) + np.finfo(dtype=reference_energy.dtype).eps)
     ratio = np.mean(ratio)
-    return 10 * np.log10(ratio)
+    return 10 * np.log10(ratio) 
 
 
 def STOI(reference, estimation, sr=16000):

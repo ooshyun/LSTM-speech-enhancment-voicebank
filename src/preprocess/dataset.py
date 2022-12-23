@@ -14,6 +14,7 @@ from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 from .feature_extractor import FeatureExtractor
 from src.utils import (
+    get_tf_feature_real_imag_pair,
     get_tf_feature_mag_phase_pair,
     get_tf_feature_sample_pair,
     read_audio,
@@ -76,9 +77,7 @@ class DatasetVoiceBank:
         clean_audio, sr = read_audio(clean_filename, self.args.sample_rate)
         noisy_audio, sr = read_audio(noisy_filename, self.args.sample_rate)
 
-        if self.args.segment_normalization:
-            pass
-        else:
+        if not self.args.segment_normalization:
             clean_audio = encode_normalize(clean_audio, self.args.normalize)
             noisy_audio = encode_normalize(noisy_audio, self.args.normalize)
 
@@ -160,12 +159,7 @@ class DatasetVoiceBank:
 
     def create_tf_record(self, *, prefix, parallel=False):
         root = self.args.save_path
-        folder = f"{root}/records_{self.model_name}_train_{int(self.args.split*100)}_norm_{self.args.normalize}_segNorm_{self.args.segment_normalization}_fft_{self.args.fft}"
-
-        if self.args.fft_normalize:
-            folder = f"{folder}_norm_topdB_{self.args.top_db}"
-        else:
-            folder = f"{folder}_topdB_{self.args.top_db}"
+        folder = f"{root}/records_{self.model_name}_train_{int(self.args.split*100)}_norm_{self.args.normalize}_segNorm_{self.args.segment_normalization}_fft_{self.args.fft}_topdB_{self.args.top_db}"
         if self.debug:
             folder = f"{folder}_debug"
 
@@ -221,109 +215,108 @@ class DatasetVoiceBank:
 
             for name, data in out:
                 if self.args.fft:
-                    noisy_stft_magnitude = data[0]
-                    clean_stft_magnitude = data[1]
-                    noisy_stft_phase = data[2]
-                    clean_stft_phase = data[3]
-                    # noisy_stft_real = data[4]
-                    # clean_stft_real = data[5]
-                    # noisy_stft_imag = data[6]
-                    # clean_stft_imag = data[7]
+                    # noisy_stft_magnitude = data[0]
+                    # clean_stft_magnitude = data[1]
+                    # noisy_stft_phase = data[2]
+                    # clean_stft_phase = data[3]
+                    noisy_stft_real = data[4]
+                    clean_stft_real = data[5]
+                    noisy_stft_imag = data[6]
+                    clean_stft_imag = data[7]
                     if self.debug:
                         print("  Getting from preprocess")
                         print(
                             "[DEBUG]: ",
-                            noisy_stft_magnitude.shape,
-                            noisy_stft_phase.shape,
-                            clean_stft_magnitude.shape,
-                            clean_stft_phase.shape,
+                            noisy_stft_real.shape,
+                            noisy_stft_imag.shape,
+                            clean_stft_real.shape,
+                            clean_stft_imag.shape,
                         )
                         print(
                             "[DEBUG]: ",
-                            noisy_stft_magnitude.dtype,
-                            noisy_stft_phase.dtype,
-                            clean_stft_magnitude.dtype,
-                            clean_stft_phase.dtype,
+                            noisy_stft_real.dtype,
+                            noisy_stft_imag.dtype,
+                            clean_stft_real.dtype,
+                            clean_stft_imag.dtype,
                         )
                         print("---")
 
-                    new_axes = np.arange(len(clean_stft_phase.shape))
+                    # segment, ch, frame, freqeuncy
+                    new_axes = np.arange(len(clean_stft_imag.shape))
                     new_axes[-2:] = new_axes[-1], new_axes[-2]
 
-                    noisy_stft_magnitude = np.transpose(
-                        noisy_stft_magnitude, axes=new_axes
+                    noisy_stft_real = np.transpose(
+                        noisy_stft_real, axes=new_axes
                     )
-                    clean_stft_magnitude = np.transpose(
-                        clean_stft_magnitude, axes=new_axes
+                    clean_stft_real = np.transpose(
+                        clean_stft_real, axes=new_axes
                     )
-                    noisy_stft_phase = np.transpose(noisy_stft_phase, axes=new_axes)
-                    clean_stft_phase = np.transpose(
-                        clean_stft_phase, axes=new_axes
-                    )  # segment, ch, frame, freqeuncy
-                    if self.args.fft_normalize:
-                        noisy_stft_magnitude /= self.args.n_fft
-                        clean_stft_magnitude /= self.args.n_fft
-
+                    noisy_stft_imag = np.transpose(
+                        noisy_stft_imag, axes=new_axes
+                    )
+                    clean_stft_imag = np.transpose(
+                        clean_stft_imag, axes=new_axes
+                    )  
+                    
                     if self.debug:
                         print(" Segmentation")
                         print(
                             "[DEBUG]: ",
-                            noisy_stft_magnitude.shape,
-                            noisy_stft_phase.shape,
-                            clean_stft_magnitude.shape,
-                            clean_stft_phase.shape,
+                            noisy_stft_real.shape,
+                            noisy_stft_imag.shape,
+                            clean_stft_real.shape,
+                            clean_stft_imag.shape,
                         )
                         print(
                             "[DEBUG]: ",
-                            noisy_stft_magnitude.dtype,
-                            noisy_stft_phase.dtype,
-                            clean_stft_magnitude.dtype,
-                            clean_stft_phase.dtype,
+                            noisy_stft_real.dtype,
+                            noisy_stft_imag.dtype,
+                            clean_stft_real.dtype,
+                            clean_stft_imag.dtype,
                         )
                         print("---")
 
                     for idata, (
-                        noise_mag,
-                        clean_mag,
-                        noisy_phase,
-                        clean_phase,
+                        noisy_real,
+                        clean_real,
+                        noisy_imag,
+                        clean_imag,
                     ) in enumerate(
                         zip(
-                            noisy_stft_magnitude,
-                            clean_stft_magnitude,
-                            noisy_stft_phase,
-                            clean_stft_phase,
+                            noisy_stft_real,
+                            clean_stft_real,
+                            noisy_stft_imag,
+                            clean_stft_imag,
                         )
                     ):
-                        noise_mag = np.expand_dims(
-                            noise_mag, axis=0
-                        )  # 1, ch, frame, freqeuncy
-                        clean_mag = np.expand_dims(clean_mag, axis=0)
-                        noisy_phase = np.expand_dims(noisy_phase, axis=0)
-                        clean_phase = np.expand_dims(clean_phase, axis=0)
+                        # 1, ch, frame, freqeuncy
+                        noisy_real = np.expand_dims(noisy_real, axis=0)  
+                        clean_real = np.expand_dims(clean_real, axis=0)
+                        noisy_imag = np.expand_dims(noisy_imag, axis=0)
+                        clean_imag = np.expand_dims(clean_imag, axis=0)
 
                         if self.debug:
                             print("  Write Down to tfrecord")
                             print(
                                 "[DEBUG]: ",
-                                noise_mag.shape,
-                                noisy_phase.shape,
-                                clean_mag.shape,
-                                clean_phase.shape,
+                                noisy_real.shape,
+                                noisy_imag.shape,
+                                clean_real.shape,
+                                clean_imag.shape,
                             )
                             print(
                                 "[DEBUG]: ",
-                                noise_mag.dtype,
-                                noisy_phase.dtype,
-                                clean_mag.dtype,
-                                clean_phase.dtype,
+                                noisy_real.dtype,
+                                noisy_imag.dtype,
+                                clean_real.dtype,
+                                clean_imag.dtype,
                             )
                             print("---")
 
-                        example = get_tf_feature_mag_phase_pair(
-                            noise_mag, clean_mag, noisy_phase, clean_phase
+                        example = get_tf_feature_real_imag_pair(
+                            noisy_real, clean_real, noisy_imag, clean_imag
                         )
-
+    
                         tfrecord_filename = (
                             f"{folder}/{prefix}_{name}_{idata}.tfrecords"
                         )

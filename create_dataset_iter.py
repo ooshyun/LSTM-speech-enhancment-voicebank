@@ -9,7 +9,6 @@ if __name__ == "__main__":
 
     fft_list = (True, False)
     split_list = (0.9, 0.8, 0.7)
-    fft_normalize_list = (True, False)
     normalize_list = ("min-max", "z-score", "none")
     segment_normalization_list = (True, False)
 
@@ -17,11 +16,9 @@ if __name__ == "__main__":
     for split in split_list:
         for segment_normalization in segment_normalization_list:
             for normalize in normalize_list:
-                for fft_normalize in fft_normalize_list:
                     config.dset.split = split
                     config.dset.segment_normalization = segment_normalization
                     config.dset.normalize = normalize
-                    config.dset.fft_normalize = fft_normalize
                     preprocess_data(config)
 
     config.dset.fft_normalize = False
