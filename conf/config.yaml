@@ -4,11 +4,11 @@ default:
 
 dummy:
 dset:
-  wav: '/Users/seunghyunoh/workplace/research/NoiseReduction/Tiny-SpeechEnhancement/data/VoiceBankDEMAND/DS_10283_2791'
-  # wav: '/home/daniel0413/workplace/project/SpeechEnhancement/TinyML/data/VoiceBankDEMAND'
+  wav: "./data/VoiceBankDEMAND/DS_10283_2791"
   split: 0.9
   sample_rate: 16000
   segment: 1.008
+  # segment: 1.024 # unet
   # lstm model
   n_fft: 512
   win_length: 512
@@ -20,10 +20,10 @@ dset:
   # hop_length: 64
   channels: 1
   top_db: 100
-  fft: True
-  # fft: False
+  # fft: True
+  fft: False
   center: True
-  save_path: "./data"
+  save_path: "./data/preprocess"
   # normalize: 'none'
   # normalize: 'min-max'
   normalize: 'z-score'
@@ -31,8 +31,12 @@ dset:
   segment_normalization: False 
 
 model:
-  name: 'lstm'
-  lstm_layer: 256
+  # name: 'rnn'
+  # name: 'lstm'
+  name: 'gru'
+  # name: 'crn'
+  # name: 'unet'
+  lstm_layer: 256 # recurret type nlayer
   # lstm_layer: 128
   n_feature: 257
   n_segment: 64 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
@@ -47,24 +51,32 @@ model:
   metric: ['sisdr', ] # 'nb-pesq', 'sdr', 'stoi', 'wb-pesq', 
   path:
   ckpt:
-  # path: './result/lstm/20221108-174727'
-  # path: './result/lstm/20221103-213029_topdb100_mae'
-  # ckpt: 'checkpoint/model-01-0.0002.hdf5'
+
+test:
+  steps: 1
+  wav: "./data/VoiceBankDEMAND/DS_10283_2791"
+  save: False
+
+tflite: 
+  format: 'int8'
+  test: True
+
 
 optim:
+  load: False
   optim: 'adam'
   lr: 0.0003
   # optim: 'sgd'
   # lr: 0.001
-  # loss: 'mse'
+  loss: 'mse'
   # loss: 'rmse'
   # loss: 'ideal-mag'
   # loss: 'psa'
-  loss: 'psa-bose'
+  # loss: 'psa-bose'
 
 seed: 10
-batch_size: 512
-steps: 5
+batch_size: 16
+steps: 2
 epochs: 1
 folder: './result'
 debug: True
