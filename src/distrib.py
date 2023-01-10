@@ -7,8 +7,7 @@ import numpy as np
 import tensorflow as tf
 import keras.callbacks
 import keras.models
-from keras.backend import epsilon
-from .utils import save_json, stft_tensorflow, TimeHistory
+from .utils import save_json, stft_tensorflow
 
 
 def save_model_all(path, model: keras.models.Model):
@@ -55,10 +54,15 @@ def load_callback(path, args):
 def load_model(args):
     model_name = args.model.name
 
-    if model_name == "lstm":
-        from .lstm import build_model_lstm
-
-        model = build_model_lstm(args)
+    if model_name in ("rnn", "lstm", "gru"):
+        from .model.rnn import build_model_rnn
+        model = build_model_rnn(args)
+    elif model_name == "crn":
+        from .model.crn import build_crn_model_tf
+        model = build_crn_model_tf(args)
+    elif model_name == "unet":
+        from .model.unet import build_unet_model_tf
+        model = build_unet_model_tf(args)        
     else:
         raise ValueError("Model didn't implement...")
     model.summary()
@@ -72,9 +76,14 @@ def load_model(args):
                 os.path.join(args.model.path, "model"), compile=False
             )
 
-    if model_name == "lstm":
-        from .lstm import compile_model
-        compile_model(model, args)
+    if model_name in ("rnn", "lstm", "gru"):
+        from .model.rnn import compile_model
+    elif model_name == "crn":
+        from .model.crn import compile_model
+    elif model_name == "unet":
+        from .model.unet import compile_model
+
+    compile_model(model, args)
 
     return model
 
@@ -86,6 +95,9 @@ def load_dataset(args):
     nfft = args.dset.n_fft
     hop_length = args.dset.hop_length
     center = args.dset.center
+    sample_rate = args.dset.sample_rate
+    segment = args.dset.segment
+
     num_features = args.model.n_feature
     num_segments = args.model.n_segment
     normalization = args.dset.normalize
@@ -115,78 +127,74 @@ def load_dataset(args):
     print("Validation file names: ", len(val_tfrecords_filenames))
 
     def tf_record_parser(record):
-        if model_name == "lstm":
+        if model_name in ("unet"):
             if flag_fft:
-                keys_to_features = {
-                    "noisy_stft_real": tf.io.FixedLenFeature(
-                        [], tf.string, default_value=""
-                    ),
-                    "clean_stft_real": tf.io.FixedLenFeature((), tf.string),
-                    "noisy_stft_imag": tf.io.FixedLenFeature((), tf.string),
-                    "clean_stft_imag": tf.io.FixedLenFeature((), tf.string),
-                }
-                features = tf.io.parse_single_example(record, keys_to_features)
+                raise ValueError(f"{model_name} should flag of fft False in configuration...")
 
-                noisy_stft_real = tf.io.decode_raw(
-                    features["noisy_stft_real"], tf.float32
-                )  # phase scaling by clean wav
-                clean_stft_real = tf.io.decode_raw(
-                    features["clean_stft_real"], tf.float32
-                )
-                noisy_stft_imag = tf.io.decode_raw(
-                    features["noisy_stft_imag"], tf.float32
-                )
-                clean_stft_imag = tf.io.decode_raw(
-                    features["clean_stft_imag"], tf.float32
-                )
+        if flag_fft:
+            keys_to_features = {
+                "noisy_stft_real": tf.io.FixedLenFeature(
+                    [], tf.string, default_value=""
+                ),
+                "clean_stft_real": tf.io.FixedLenFeature((), tf.string),
+                "noisy_stft_imag": tf.io.FixedLenFeature((), tf.string),
+                "clean_stft_imag": tf.io.FixedLenFeature((), tf.string),
+            }
+            features = tf.io.parse_single_example(record, keys_to_features)
 
-                # clean_stft_magnitude = tf.abs(tf.pow(clean_stft_real, 2) + tf.pow(clean_stft_imag, 2))
-                # clean_stft_phase = tf.math.atan(clean_stft_real, tf.math.add(clean_stft_imag, epsilon()))
-                
-                # noisy_stft_magnitude = tf.abs(tf.pow(noisy_stft_real, 2) + tf.pow(noisy_stft_imag, 2))
-                # noisy_stft_phase = tf.math.atan(noisy_stft_real, tf.math.add(noisy_stft_imag, epsilon()))    
-                
-                noisy_feature = tf.complex(real=noisy_stft_real, imag=noisy_stft_imag)
-                clean_feature = tf.complex(real=clean_stft_real, imag=clean_stft_imag)
+            noisy_stft_real = tf.io.decode_raw(
+                features["noisy_stft_real"], tf.float32
+            )  # phase scaling by clean wav
+            clean_stft_real = tf.io.decode_raw(
+                features["clean_stft_real"], tf.float32
+            )
+            noisy_stft_imag = tf.io.decode_raw(
+                features["noisy_stft_imag"], tf.float32
+            )
+            clean_stft_imag = tf.io.decode_raw(
+                features["clean_stft_imag"], tf.float32
+            )
+            
+            noisy_feature = tf.complex(real=noisy_stft_real, imag=noisy_stft_imag)
+            clean_feature = tf.complex(real=clean_stft_real, imag=clean_stft_imag)
 
-                if fft_normalization:
-                    # noisy_feature = tf.divide(noisy_feature, tf.constant(nfft, dtype=tf.complex64))
-                    # clean_feature = tf.divide(clean_feature, tf.constant(nfft, dtype=tf.complex64))
-                    noisy_feature = tf.divide(noisy_feature, nfft)
-                    clean_feature = tf.divide(clean_feature, nfft)
-                
-            else:
-                keys_to_features = {
-                    "noisy": tf.io.FixedLenFeature((), tf.string, default_value=""),
-                    "clean": tf.io.FixedLenFeature([], tf.string),
-                }
+            if fft_normalization:
+                noisy_feature = tf.divide(noisy_feature, nfft)
+                clean_feature = tf.divide(clean_feature, nfft)
+            
+        else:
+            keys_to_features = {
+                "noisy": tf.io.FixedLenFeature((), tf.string, default_value=""),
+                "clean": tf.io.FixedLenFeature((), tf.string),
+            }
 
-                features = tf.io.parse_single_example(record, keys_to_features)
+            features = tf.io.parse_single_example(record, keys_to_features)
 
-                noisy = tf.io.decode_raw(features["noisy"], tf.float32)
-                clean = tf.io.decode_raw(features["clean"], tf.float32)
+            noisy = tf.io.decode_raw(features["noisy"], tf.float32)
+            clean = tf.io.decode_raw(features["clean"], tf.float32)
 
-                noisy_feature = stft_tensorflow(wav=noisy, 
-                                                nfft=nfft, 
-                                                hop_length=hop_length, 
-                                                center=center, 
-                                                normalize=fft_normalization
-                                                )
-                
-                clean_feature = stft_tensorflow(wav=clean, 
-                                                nfft=nfft, 
-                                                hop_length=hop_length, 
-                                                center=center, 
-                                                normalize=fft_normalization
-                                                )
 
+            noisy_feature = stft_tensorflow(wav=noisy, 
+                                            nfft=nfft, 
+                                            hop_length=hop_length, 
+                                            center=center, 
+                                            normalize=fft_normalization
+                                            )
+            
+            clean_feature = stft_tensorflow(wav=clean, 
+                                            nfft=nfft, 
+                                            hop_length=hop_length, 
+                                            center=center, 
+                                            normalize=fft_normalization
+                                            )
+        if model_name in ("unet"):
+            noisy_feature = tf.reshape(noisy, (1, int(sample_rate*segment)), name="noisy_feature")
+            clean_feature = tf.reshape(clean, (1, int(sample_rate*segment)), name="clean_feature")
+        else:
             noisy_feature = tf.reshape(noisy_feature, (1, num_segments, num_features), name="noisy_feature")
             clean_feature = tf.reshape(clean_feature, (1, num_segments, num_features), name="clean_feature")
 
-            return noisy_feature, clean_feature
-
-        else:
-            raise ValueError("Model didn't implement...")
+        return noisy_feature, clean_feature
 
     """
     TFRecordDataset

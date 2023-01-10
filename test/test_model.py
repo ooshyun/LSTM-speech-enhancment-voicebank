@@ -1,7 +1,8 @@
 import unittest
 import logging
+import numpy as np
 from src.utils import load_yaml
-
+from keras.backend import random_normal
 save_path = "./test/result/test_model"
 
 class ModelSanityCheck(unittest.TestCase):
@@ -112,6 +113,105 @@ class ModelSanityCheck(unittest.TestCase):
                 assert (diff < 1e-6).all()
 
             print(f" {i+1} Pass")
+
+    def test_lstm(self):
+        """
+        python -m unittest -v test.test_model.ModelSanityCheck.test_lstm
+        """
+        from src.utils import load_yaml
+        from src.model.rnn import build_model_rnn
+
+        config = load_yaml("./test/conf/config.yaml")
+        batch = config.batch_size
+        channel = config.dset.channels
+        segment = config.dset.segment
+        nfeature = config.dset.n_fft//2+1
+        
+        inputs = [random_normal(shape=(batch, channel, config.model.n_segment, config.model.n_feature)) for _ in range(3)]
+        inputs_complex = np.array(inputs, dtype=np.complex64)
+        inputs_complex.imag = inputs
+
+        model = build_model_rnn(config)
+
+        model.build(input_shape=(channel, config.model.n_segment, config.model.n_feature))
+        model.summary()
+        
+        print("Real Training...")
+        for step, input in enumerate(inputs):
+            print(f"input shape: {input.shape}")
+            output = model(input)
+            print(f"Step {step}: Input shape={input.shape}, Output shape: {output.shape}")      
+            break
+
+        print("Complex Training...")
+        for step, input in enumerate(inputs_complex):
+            print(f"input shape: {input.shape}")
+            output = model(input)
+            print(f"Step {step}: Input shape={input.shape}, Output shape: {output.shape}")      
+            break
+
+    def test_crn(self):
+        """
+        python -m unittest -v test.test_model.ModelSanityCheck.test_crn
+        """
+        from src.utils import load_yaml
+        from src.model.crn import build_crn_model_tf
+
+        config = load_yaml("./test/conf/config.yaml")
+        batch = config.batch_size
+        channel = config.dset.channels
+        segment = config.dset.segment
+        nfeature = config.dset.n_fft//2+1
+        
+        inputs = [random_normal(shape=(batch, channel, config.model.n_segment, config.model.n_feature)) for _ in range(3)]
+        inputs_complex = np.array(inputs, dtype=np.complex64)
+        inputs_complex.imag = inputs
+
+        model = build_crn_model_tf(config)
+
+        model.build(input_shape=(channel, config.model.n_segment, config.model.n_feature))
+        model.summary()
+        
+        print("Real Training...")
+        for step, input in enumerate(inputs):
+            print(f"input shape: {input.shape}")
+            output = model(input)
+            print(f"Step {step}: Input shape={input.shape}, Output shape: {output.shape}")      
+            break
+
+        print("Complex Training...")
+        for step, input in enumerate(inputs_complex):
+            print(f"input shape: {input.shape}")
+            output = model(input)
+            print(f"Step {step}: Input shape={input.shape}, Output shape: {output.shape}")      
+            break
+
+    def test_unet(self):
+        """
+        python -m unittest -v test.test_model.ModelSanityCheck.test_unet
+        """
+        from src.utils import load_yaml
+        from src.model.unet import build_unet_model_tf
+
+        config = load_yaml("./test/conf/config.yaml")
+        batch = config.batch_size
+        channel = config.dset.channels
+        sample_rate = config.dset.sample_rate
+        segment = config.dset.segment
+
+        inputs = [random_normal(shape=(batch, channel, int(sample_rate*segment))) for _ in range(3)]
+        
+        model = build_unet_model_tf(config)
+
+        model.build(input_shape=(batch, channel, int(sample_rate*segment)))
+        model.summary()
+        
+        for step, input in enumerate(inputs):
+            print(f"input shape: {input.shape}")
+            output = model(input)
+            print(f"Step {step}: Input shape={input.shape}, Output shape: {output.shape}")      
+            break
+
 
 if __name__ == "__main__":
     unittest.main()

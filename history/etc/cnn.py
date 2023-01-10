@@ -240,7 +240,8 @@ def compile_model(model: Model, args):
     optimizer = keras.optimizers.Adam(3e-4)
     # optimizer = RAdam(total_steps=10000, warmup_proportion=0.1, min_lr=3e-4)
 
-    if args.model.path is not None:
+    if args.model.path is not None and args.optim.load:
+:
         tf.print("Optimizer Loading...")
         dummpy_model = build_model(args)
         optimizer_state = load_json(

@@ -57,6 +57,8 @@ class VoiceBandDEMAND:
             file_clean_list = _find_files(folder_clean_datasets)
             file_noisy_list = _find_files(folder_noisy_datasets)
 
+        assert len(file_clean_list)!=0, f"There's no file in {self.basepath}"
+
         print("File example:")
         print("Clean: ", file_clean_list[0], "The number: ", len(file_clean_list))
         print("Noisy: ", file_noisy_list[0], "The number: ", len(file_noisy_list))
