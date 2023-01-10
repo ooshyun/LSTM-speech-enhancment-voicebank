@@ -1,6 +1,7 @@
 **
 !*.py
 !*.md
+!*.sh
 !history/
 !.gitignore
 !*.ipynb
