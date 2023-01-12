@@ -46,8 +46,8 @@ def train(args):
     print("Save path: ", save_path)
 
     # 5. Evaluate model
-    # baseline_val_loss = model.evaluate(test_dataset)[0]
-    # print(f"Baseline accuracy {baseline_val_loss}")
+    baseline_val_loss = model.evaluate(test_dataset)[0]
+    print(f"Baseline accuracy {baseline_val_loss}")
 
     # 6. Train
     model.fit(
@@ -61,11 +61,11 @@ def train(args):
     # 7. Save trained model after evaluation
     val_loss = model.evaluate(test_dataset)[0]
     
-    # if val_loss < baseline_val_loss:
-    print("New model saved.")
-    from src.distrib import save_model_all
+    if val_loss < baseline_val_loss:
+        print("New model saved.")
+        from src.distrib import save_model_all
 
-    save_model_all(save_path, model)
+        save_model_all(save_path, model)
 
     return save_path
 

@@ -7,22 +7,20 @@ dset:
   wav: "./data/VoiceBankDEMAND/DS_10283_2791"
   split: 0.9
   sample_rate: 16000
-  # segment: 1.008
-  segment: 1.024 # unet
-  # segment: 4
+  segment: 1.024 
   # lstm model
-  n_fft: 512
-  win_length: 512
-  hop_length: 256
+  # n_fft: 512
+  # win_length: 512
+  # hop_length: 256
   # hop_length: 128
-  # n_fft: 256
-  # win_length: 256
+  n_fft: 256
+  win_length: 256
   # hop_length: 128
-  # hop_length: 64
+  hop_length: 64
   channels: 1
   top_db: 100
-  # fft: True
-  fft: False
+  fft: True
+  # fft: False
   center: True
   save_path: "./data/preprocess"
   # normalize: 'none'
@@ -33,19 +31,19 @@ dset:
 
 model:
   # name: 'rnn'
-  # name: 'lstm'
+  name: 'lstm'
   # name: 'gru'
   # name: 'crn'
-  name: 'unet'
+  # name: 'unet' # target segment 1.024
   # name: 'conv-tasnet'
-  lstm_layer: 256 # recurret type nlayer
+  lstm_layer: 256 # recurret type n_layer
   # lstm_layer: 128
-  n_feature: 257
-  n_segment: 64 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
-  # n_segment: 127 # 1.008 sec in 512 window, 128 hop, sr = 16000 Hz
-  # n_feature: 129
-  # n_segment: 127 # 1.008 sec in 256 window, 128 hop, sr = 16000 Hz
-  # n_segment: 253 # 1.008 sec in 256 window, 64 hop, sr = 16000 Hz
+  n_feature: 257 # 512 fft
+  n_segment: 65 # 256 hop, sr 16000 Hz, segment 1.024s
+  # n_segment: 129 # 128 hop, sr 16000 Hz, segment 1.024s
+  # n_feature: 129 # 256 fft
+  # n_segment: 129 # 1.024 sec 128 hop, sr 16000 Hz, segment 1.024s
+  # n_segment: 257 # 1.024 sec in 256 window, 64 hop, sr 16000 Hz, segment 1.024s
   n_mels: 128
   f_min: 125
   f_max: 8000
