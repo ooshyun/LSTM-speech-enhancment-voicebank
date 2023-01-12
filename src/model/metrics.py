@@ -64,7 +64,7 @@ def SI_SDR(reference, estimation, sr=16000):
 
     ratio = np.sum(projection**2, axis=-1) / (np.sum(noise**2, axis=-1) + np.finfo(dtype=reference_energy.dtype).eps)
     ratio = np.mean(ratio)
-    return 10 * np.log10(ratio) 
+    return 10 * np.log10(ratio+np.finfo(dtype=reference_energy.dtype).eps)
 
 
 def STOI(reference, estimation, sr=16000):
@@ -229,7 +229,7 @@ class SpeechMetric(tf.keras.metrics.Metric):
                 f"Metric function '{self.metric}' is not implemented"
             )
 
-        if self.model_name not in ("unet"):
+        if self.model_name not in ("unet", "conv-tasnet"):
             # related with preprocess normalized fft
             if self.normalize:
                 y_true *= 2 * (y_true.shape[-1] - 1)  

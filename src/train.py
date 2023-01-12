@@ -60,6 +60,7 @@ def train(args):
 
     # 7. Save trained model after evaluation
     val_loss = model.evaluate(test_dataset)[0]
+    
     if val_loss < baseline_val_loss:
         print("New model saved.")
         from src.distrib import save_model_all

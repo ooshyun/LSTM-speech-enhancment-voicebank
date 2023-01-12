@@ -471,9 +471,15 @@ def segment_audio(audio, sample_rate, segment):
     nsegment = length_audio // num_sample_segment
 
     if length_audio / sample_rate < segment:
+        padding = np.zeros(shape=(len(audio.shape)*2, ), dtype=int)
+        padding[-1] = num_sample_segment - length_audio
+        padding = np.reshape(a=padding, newshape=(len(audio.shape), 2))
         audio = np.pad(
-            audio, ((0, 0), (0, num_sample_segment - length_audio)), "constant"
+            array=audio, pad_width=padding, mode="constant", constant_values=0
         )
+        length_audio = audio.shape[-1]
+        nsegment = length_audio // num_sample_segment
+
     elif length_audio % num_sample_segment != 0:
         audio = audio[: nsegment * num_sample_segment]
 
@@ -482,6 +488,7 @@ def segment_audio(audio, sample_rate, segment):
         newshape = [nsegment, num_sample_segment]
     else:
         newshape = [audio.shape[:-1]] + [nsegment, num_sample_segment]
+
     audio = np.reshape(audio, newshape=newshape)  # ..., segment, samples
 
     audio_segments = None

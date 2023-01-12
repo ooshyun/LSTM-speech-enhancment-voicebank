@@ -212,6 +212,31 @@ class ModelSanityCheck(unittest.TestCase):
             print(f"Step {step}: Input shape={input.shape}, Output shape: {output.shape}")      
             break
 
+    def test_conv_tasnet(self):
+        """
+        python -m unittest -v test.test_model.ModelSanityCheck.test_conv_tasnet
+        """
+        from src.utils import load_yaml
+        from src.model.conv_tasnet import build_conv_tasnet_model_tf
+
+        config = load_yaml("./test/conf/config.yaml")
+        batch = config.batch_size
+        channel = config.dset.channels
+        sample_rate = config.dset.sample_rate
+        segment = config.dset.segment
+
+        inputs = [random_normal(shape=(batch, channel, int(sample_rate*segment))) for _ in range(3)]
+        
+        model = build_conv_tasnet_model_tf(config)
+
+        model.build(input_shape=(batch, channel, int(sample_rate*segment)))
+        model.summary()
+        
+        for step, input in enumerate(inputs):
+            print(f"input shape: {input.shape}")
+            output = model(input)
+            print(f"Step {step}: Input shape={input.shape}, Output shape: {output.shape}")      
+            break
 
 if __name__ == "__main__":
     unittest.main()
