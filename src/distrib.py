@@ -63,6 +63,9 @@ def load_model(args):
     elif model_name == "unet":
         from .model.unet import build_unet_model_tf
         model = build_unet_model_tf(args)        
+    elif model_name == "conv-tasnet":
+        from .model.conv_tasnet import build_conv_tasnet_model_tf
+        model = build_conv_tasnet_model_tf(args)
     else:
         raise ValueError("Model didn't implement...")
     model.summary()
@@ -82,6 +85,8 @@ def load_model(args):
         from .model.crn import compile_model
     elif model_name == "unet":
         from .model.unet import compile_model
+    elif model_name == "conv-tasnet":
+        from .model.conv_tasnet import compile_model
 
     compile_model(model, args)
 
@@ -111,7 +116,7 @@ def load_dataset(args):
         seg_normalization = False
 
     # 2. Load data
-    path_to_dataset = f"{save_path}/records_{model_name}_train_{train_split}_norm_{normalization}_segNorm_{seg_normalization}_fft_{flag_fft}_topdB_{top_db}"
+    path_to_dataset = f"{save_path}/records_seg_{str(segment).replace('.', '-')}_train_{train_split}_norm_{normalization}_segNorm_{seg_normalization}_fft_{flag_fft}_topdB_{top_db}"
     if args.debug:
         path_to_dataset = path_to_dataset + "_debug"
     path_to_dataset = Path(path_to_dataset)
@@ -127,7 +132,7 @@ def load_dataset(args):
     print("Validation file names: ", len(val_tfrecords_filenames))
 
     def tf_record_parser(record):
-        if model_name in ("unet"):
+        if model_name in ("unet", "conv-tasnet"):
             if flag_fft:
                 raise ValueError(f"{model_name} should flag of fft False in configuration...")
 
@@ -187,7 +192,7 @@ def load_dataset(args):
                                             center=center, 
                                             normalize=fft_normalization
                                             )
-        if model_name in ("unet"):
+        if model_name in ("unet", "conv-tasnet"):
             noisy_feature = tf.reshape(noisy, (1, int(sample_rate*segment)), name="noisy_feature")
             clean_feature = tf.reshape(clean, (1, int(sample_rate*segment)), name="clean_feature")
         else:

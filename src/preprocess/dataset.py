@@ -159,7 +159,7 @@ class DatasetVoiceBank:
 
     def create_tf_record(self, *, prefix, parallel=False):
         root = self.args.save_path
-        folder = f"{root}/records_{self.model_name}_train_{int(self.args.split*100)}_norm_{self.args.normalize}_segNorm_{self.args.segment_normalization}_fft_{self.args.fft}_topdB_{self.args.top_db}"
+        folder = f"{root}/records_seg_{str(self.args.segment).replace('.', '-')}_train_{int(self.args.split*100)}_norm_{self.args.normalize}_segNorm_{self.args.segment_normalization}_fft_{self.args.fft}_topdB_{self.args.top_db}"
         if self.debug:
             folder = f"{folder}_debug"
 
