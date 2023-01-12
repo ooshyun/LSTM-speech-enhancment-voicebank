@@ -7,8 +7,9 @@ dset:
   wav: "./data/VoiceBankDEMAND/DS_10283_2791"
   split: 0.9
   sample_rate: 16000
-  segment: 1.008
-  # segment: 1.024 # unet
+  # segment: 1.008
+  segment: 1.024 # unet
+  # segment: 4
   # lstm model
   n_fft: 512
   win_length: 512
@@ -33,9 +34,10 @@ dset:
 model:
   # name: 'rnn'
   # name: 'lstm'
-  name: 'gru'
+  # name: 'gru'
   # name: 'crn'
-  # name: 'unet'
+  name: 'unet'
+  # name: 'conv-tasnet'
   lstm_layer: 256 # recurret type nlayer
   # lstm_layer: 128
   n_feature: 257
@@ -49,7 +51,7 @@ model:
   f_max: 8000
   fft_normalization: True # False
   metric: ['sisdr', ] # 'nb-pesq', 'sdr', 'stoi', 'wb-pesq', 
-  path:
+  path: 
   ckpt:
 
 test:
@@ -58,7 +60,7 @@ test:
   save: False
 
 tflite: 
-  format: 'int8'
+  format: 'float32'
   test: True
 
 

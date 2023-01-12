@@ -94,7 +94,7 @@ def inference(clean_file, noisy_file, args, return_metric=False):
     std_noisy = np.std(noisy_audio)
     noisy_audio_norm = (noisy_audio - mean_noisy) / std_noisy
 
-    if model_name in ("unet"):
+    if model_name in ("unet", "conv-tasnet"):
         num_feature = int(sample_rate*segment)
         stride = 256
         noisy_input = _prepare_input_wav_zero_filled(noisy_audio_norm, num_feature=num_feature, stride=stride)
@@ -111,7 +111,7 @@ def inference(clean_file, noisy_file, args, return_metric=False):
         
     output = model.predict(noisy_input)
     
-    if model_name in ("unet"):
+    if model_name in ("unet", "conv-tasnet"):
         shape = list(noisy_audio_norm.shape)
         shape = shape[:-1] + [num_feature + stride*(output.shape[0]-1)]
         estimation = np.zeros(shape=shape, dtype=noisy_audio_norm.dtype)
@@ -145,7 +145,7 @@ def inference(clean_file, noisy_file, args, return_metric=False):
         filename = clean_file.split('/')[-1].split('.')[0]
         metric_sisdr = {filename:{}}
         
-        if model_name in ("unet"):
+        if model_name in ("unet", "conv-tasnet"):
             noisy_bypass = mean_noisy*noisy_audio_norm + std_noisy
             clean_bypass = clean_audio
         else:

@@ -1,3 +1,7 @@
+"""
+Recurrent type Network, RNN, LSTM and GRU
+"""
+
 from keras.layers import (
     Input,
     Dense,

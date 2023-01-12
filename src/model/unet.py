@@ -1,3 +1,8 @@
+"""
+Wave-U-Net, Conversion to Tensorflow
+
+Refernece. https://github.com/haoxiangsnr/Wave-U-Net-for-Speech-Enhancement
+"""
 import numpy as np
 import tensorflow as tf
 import keras

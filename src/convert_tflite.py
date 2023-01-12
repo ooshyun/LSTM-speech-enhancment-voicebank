@@ -73,6 +73,7 @@ def convert_model_to_TFlite(args):
     def representative_dataset():
       for data in test_dataset:
         noisy, clean = data
+        print(noisy.shape)
         yield [noisy]
 
     ## 2.2 Convert model
