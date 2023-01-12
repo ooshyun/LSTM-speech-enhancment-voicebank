@@ -15,8 +15,8 @@ dset:
   # hop_length: 128
   n_fft: 256
   win_length: 256
-  # hop_length: 128
-  hop_length: 64
+  hop_length: 128
+  # hop_length: 64
   channels: 1
   top_db: 100
   fft: True
@@ -38,12 +38,8 @@ model:
   # name: 'conv-tasnet'
   lstm_layer: 256 # recurret type n_layer
   # lstm_layer: 128
-  n_feature: 257 # 512 fft
-  n_segment: 65 # 256 hop, sr 16000 Hz, segment 1.024s
-  # n_segment: 129 # 128 hop, sr 16000 Hz, segment 1.024s
-  # n_feature: 129 # 256 fft
-  # n_segment: 129 # 1.024 sec 128 hop, sr 16000 Hz, segment 1.024s
-  # n_segment: 257 # 1.024 sec in 256 window, 64 hop, sr 16000 Hz, segment 1.024s
+  # n_feature: 257 # 512 fft
+  n_feature: 129 # 256 fft
   n_mels: 128
   f_min: 125
   f_max: 8000

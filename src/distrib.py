@@ -104,11 +104,11 @@ def load_dataset(args):
     segment = args.dset.segment
 
     num_features = args.model.n_feature
-    num_segments = args.model.n_segment
     normalization = args.dset.normalize
     fft_normalization = args.model.fft_normalization
     top_db = args.dset.top_db
     train_split = int(args.dset.split * 100)
+    num_segments = int(segment*sample_rate//hop_length + 1)
 
     if args.dset.segment_normalization:
         seg_normalization = args.dset.segment_normalization

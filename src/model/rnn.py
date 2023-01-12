@@ -41,7 +41,7 @@ from .time_frequency import(
 )
 def build_model_rnn(args):
     inputs = Input(
-        shape=[1, args.model.n_segment, args.model.n_feature], 
+        shape=[1, int(args.dset.segment*args.dset.sample_rate//args.dset.hop_length + 1), args.model.n_feature],
         name="input", 
         dtype=tf.complex64,
     )
@@ -148,7 +148,7 @@ def compile_model(model: Model, args):
                 shape=(
                     dummy_batch_size,
                     1,
-                    args.model.n_segment,
+                    int(args.dset.segment*args.dset.sample_rate//args.dset.hop_length + 1),
                     args.model.n_feature,
                 ),
                 dtype=tf.complex64,
@@ -157,7 +157,7 @@ def compile_model(model: Model, args):
                 shape=(
                     dummy_batch_size,
                     1,
-                    args.model.n_segment,
+                    int(args.dset.segment*args.dset.sample_rate//args.dset.hop_length + 1),
                     args.model.n_feature,
                 ), 
                 dtype=tf.complex64,

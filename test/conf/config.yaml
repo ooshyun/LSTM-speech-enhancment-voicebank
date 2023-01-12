@@ -35,11 +35,7 @@ model:
   # lstm_layer: 256
   lstm_layer: 128
   n_feature: 257
-  n_segment: 64 # 1.008 sec in 512 window, 256 hop, sr = 16000 Hz
-  # n_segment: 127 # 1.008 sec in 512 window, 128 hop, sr = 16000 Hz
   # n_feature: 129
-  # n_segment: 127 # 1.008 sec in 256 window, 128 hop, sr = 16000 Hz
-  # n_segment: 253 # 1.008 sec in 256 window, 64 hop, sr = 16000 Hz
   n_mels: 128
   f_min: 125
   f_max: 8000
