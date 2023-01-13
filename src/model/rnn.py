@@ -11,6 +11,7 @@ from keras.layers import (
     GRU,
     Layer,
     Multiply,
+
 )
 
 import keras.layers
@@ -20,6 +21,7 @@ import keras.regularizers
 import keras.optimizers
 
 import os
+import numpy as np
 from src.utils import load_json
 
 from .metrics import (
@@ -39,6 +41,64 @@ from .time_frequency import(
     MelSpec,
     InverseMelSpec,
 )
+
+class DeContextLayer(Layer):
+    def __init__(
+        self,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.delay_buffer = None
+        self.ema_parameter = [tf.Variable(0.85, dtype=tf.float32, name="decontextlayer_0"), 
+                            tf.Variable(0.15, dtype=tf.float32, name="decontextlayer_1")]
+        
+    def call(self, inputs, training=True):
+        if self.delay_buffer is None:
+            outputs = self.ema_parameter[1] + self.ema_parameter[0]*inputs
+            if inputs.shape[0] != None:
+                self.delay_buffer = self.ema_parameter[1]*self.delay_buffer + self.ema_parameter[0]*inputs
+        else:
+            outputs = self.ema_parameter[1]*self.delay_buffer + self.ema_parameter[0]*inputs
+            self.delay_buffer = self.ema_parameter[1]*self.delay_buffer + self.ema_parameter[0]*inputs
+                    
+        return outputs
+
+class ContextLayer(Layer):
+    def __init__(
+        self,
+        unit,
+        use_bias=False,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.unit = unit
+        self.use_bias = use_bias
+        self.linear = Dense(unit, use_bias=use_bias)
+        self.ema_parameter = [tf.Variable(0.1, dtype=tf.float32, name="contextlayer_0"), 
+                            tf.Variable(0.9, dtype=tf.float32, name="contextlayer_1")]
+        self.delay_buffer = None
+        
+    def call(self, inputs, training=True):
+        if self.delay_buffer is None:
+            outputs = self.ema_parameter[1] + self.ema_parameter[0]*inputs
+            if inputs.shape[0] != None:
+                self.delay_buffer = self.ema_parameter[1]*self.delay_buffer + self.ema_parameter[0]*inputs
+        else:
+            outputs = self.ema_parameter[1]*self.delay_buffer + self.ema_parameter[0]*inputs
+            self.delay_buffer = self.ema_parameter[1]*self.delay_buffer + self.ema_parameter[0]*inputs
+        return outputs
+
+    def get_config(self):
+        config = super(ContextLayer, self).get_config()
+        config.update(
+            {   
+                "unit": self.unit,
+                "use_bias": self.use_bias,
+            }
+        )
+        return config
+
+
 def build_model_rnn(args):
     inputs = Input(
         shape=[1, int(args.dset.segment*args.dset.sample_rate//args.dset.hop_length + 1), args.model.n_feature],
@@ -55,6 +115,7 @@ def build_model_rnn(args):
     # print(mask.shape, mask.dtype)
 
     mask = MelSpec(args)(mask)
+    mask = ContextLayer(unit=args.model.n_mels, use_bias=True)(mask)
 
     # print(mask.shape, mask.dtype)
     
@@ -90,7 +151,7 @@ def build_model_rnn(args):
     )  
 
     # print(mask.shape, mask.dtype)
-
+    mask = DeContextLayer()(mask)
     mask = InverseMelSpec(args)(mask)
 
     # print(mask.shape, mask.dtype)
