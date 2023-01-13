@@ -127,13 +127,13 @@ class ModelSanityCheck(unittest.TestCase):
         segment = config.dset.segment
         nfeature = config.dset.n_fft//2+1
         
-        inputs = [random_normal(shape=(batch, channel, config.model.n_segment, config.model.n_feature)) for _ in range(3)]
+        inputs = [random_normal(shape=(batch, channel, int(config.dset.segment*config.dset.sample_rate//config.dset.hop_length + 1), config.model.n_feature)) for _ in range(3)]
         inputs_complex = np.array(inputs, dtype=np.complex64)
         inputs_complex.imag = inputs
 
         model = build_model_rnn(config)
 
-        model.build(input_shape=(channel, config.model.n_segment, config.model.n_feature))
+        model.build(input_shape=(channel, int(config.dset.segment*config.dset.sample_rate//config.dset.hop_length + 1), config.model.n_feature))
         model.summary()
         
         print("Real Training...")
@@ -163,13 +163,13 @@ class ModelSanityCheck(unittest.TestCase):
         segment = config.dset.segment
         nfeature = config.dset.n_fft//2+1
         
-        inputs = [random_normal(shape=(batch, channel, config.model.n_segment, config.model.n_feature)) for _ in range(3)]
+        inputs = [random_normal(shape=(batch, channel, int(config.dset.segment*config.dset.sample_rate//config.dset.hop_length + 1, config.model.n_feature))) for _ in range(3)]
         inputs_complex = np.array(inputs, dtype=np.complex64)
         inputs_complex.imag = inputs
 
         model = build_crn_model_tf(config)
 
-        model.build(input_shape=(channel, config.model.n_segment, config.model.n_feature))
+        model.build(input_shape=(channel, int(config.dset.segment*config.dset.sample_rate//config.dset.hop_length + 1, config.model.n_feature)))
         model.summary()
         
         print("Real Training...")

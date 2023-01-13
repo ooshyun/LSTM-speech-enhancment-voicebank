@@ -11,6 +11,7 @@ from keras.layers import (
     GRU,
     Layer,
     Multiply,
+
 )
 
 import keras.layers
@@ -20,6 +21,7 @@ import keras.regularizers
 import keras.optimizers
 
 import os
+import numpy as np
 from src.utils import load_json
 
 from .metrics import (
@@ -38,10 +40,14 @@ from .time_frequency import(
     Magnitude,
     MelSpec,
     InverseMelSpec,
+    ContextLayer,
+    DeContextLayer,
 )
+
+
 def build_model_rnn(args):
     inputs = Input(
-        shape=[1, args.model.n_segment, args.model.n_feature], 
+        shape=[1, int(args.dset.segment*args.dset.sample_rate//args.dset.hop_length + 1), args.model.n_feature],
         name="input", 
         dtype=tf.complex64,
     )
@@ -55,6 +61,7 @@ def build_model_rnn(args):
     # print(mask.shape, mask.dtype)
 
     mask = MelSpec(args)(mask)
+    mask = ContextLayer(unit=args.model.n_mels, use_bias=True)(mask)
 
     # print(mask.shape, mask.dtype)
     
@@ -90,7 +97,7 @@ def build_model_rnn(args):
     )  
 
     # print(mask.shape, mask.dtype)
-
+    mask = DeContextLayer()(mask)
     mask = InverseMelSpec(args)(mask)
 
     # print(mask.shape, mask.dtype)
@@ -148,7 +155,7 @@ def compile_model(model: Model, args):
                 shape=(
                     dummy_batch_size,
                     1,
-                    args.model.n_segment,
+                    int(args.dset.segment*args.dset.sample_rate//args.dset.hop_length + 1),
                     args.model.n_feature,
                 ),
                 dtype=tf.complex64,
@@ -157,7 +164,7 @@ def compile_model(model: Model, args):
                 shape=(
                     dummy_batch_size,
                     1,
-                    args.model.n_segment,
+                    int(args.dset.segment*args.dset.sample_rate//args.dset.hop_length + 1),
                     args.model.n_feature,
                 ), 
                 dtype=tf.complex64,

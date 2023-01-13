@@ -75,13 +75,13 @@ def inference(clean_file, noisy_file, args, return_metric=False):
     hop_length = args.dset.hop_length
     center = args.dset.center
     num_features = args.model.n_feature
-    num_segments = args.model.n_segment
     normalization = args.dset.normalize
     top_db = args.dset.top_db
     train_split = int(args.dset.split*100)
     sample_rate = args.dset.sample_rate
     win_length = args.dset.win_length
     segment = args.dset.segment
+    num_segments = int(segment*sample_rate//hop_length + 1)
 
     # 3. Build and Load Model
     model = load_model(args)

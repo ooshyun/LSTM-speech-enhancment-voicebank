@@ -1,6 +1,7 @@
 """Convert model to TFlite
 """
 import os
+import subprocess
 import tensorflow as tf
 import numpy as np
 from pathlib import Path
@@ -98,7 +99,8 @@ def convert_model_to_TFlite(args):
     quantized_model_cc_path = (model_path / 'model_int8.cc').as_posix()
     cmd_model_to_cc = f"sudo xxd -i {quantized_model_path} > {quantized_model_cc_path}"
 
-    os.system(cmd_model_to_cc)
+    print("------\n  Converitng quanizated model to cc file...\n------")
+    subprocess.call(cmd_model_to_cc, shell=True)
 
     if args.tflite.test:
       # 3. Validate quanitzed model

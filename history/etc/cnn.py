@@ -52,7 +52,7 @@ def full_pre_activation_block(
 
 
 def build_model(l2_strength, args):
-    inputs = Input(shape=[args.dset.n_feature, args.dset.n_segment, 1])
+    inputs = Input(shape=[args.dset.n_feature, args.dset.segment*args.dset.sample_rate//args.dset.hop_length + 1, 1])
     x = inputs
 
     # -----
@@ -240,8 +240,7 @@ def compile_model(model: Model, args):
     optimizer = keras.optimizers.Adam(3e-4)
     # optimizer = RAdam(total_steps=10000, warmup_proportion=0.1, min_lr=3e-4)
 
-    if args.model.path is not None and args.optim.load:
-:
+    if args.model.path is not None and args.optim.load::
         tf.print("Optimizer Loading...")
         dummpy_model = build_model(args)
         optimizer_state = load_json(

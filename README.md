@@ -93,7 +93,6 @@ This configuration is for model.
 name                    : the type of model 
 lstm_layer              : the number of recurrent type model layer(RNN, LSTM, GRU)
 n_feature               : the number of features
-n_segment               : the number of frames in fft for segmentation 
 n_mels                  : the number of mel-spectrogram
 f_min                   : minimum frequency in mel-spectrogram
 f_max                   : maximum frequency in mel-spectrogram
