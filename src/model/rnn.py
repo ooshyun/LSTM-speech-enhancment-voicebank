@@ -40,8 +40,7 @@ from .time_frequency import(
     Magnitude,
     MelSpec,
     InverseMelSpec,
-    ContextLayer,
-    DeContextLayer,
+    ExponentialMovingAverage,
 )
 
 
@@ -61,8 +60,9 @@ def build_model_rnn(args):
     # print(mask.shape, mask.dtype)
 
     mask = MelSpec(args)(mask)
-    mask = ContextLayer(unit=args.model.n_mels, use_bias=True)(mask)
-
+    mask = Dense(units=args.model.n_mels, use_bias=True, name="dense_context")(mask)
+    mask = ExponentialMovingAverage(alpha=0.1)(mask)
+    
     # print(mask.shape, mask.dtype)
     
     if args.model.name == 'rnn':
@@ -97,7 +97,7 @@ def build_model_rnn(args):
     )  
 
     # print(mask.shape, mask.dtype)
-    mask = DeContextLayer()(mask)
+    mask = ExponentialMovingAverage(alpha=0.85)(mask)
     mask = InverseMelSpec(args)(mask)
 
     # print(mask.shape, mask.dtype)

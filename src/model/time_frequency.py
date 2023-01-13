@@ -2,58 +2,33 @@ import tensorflow as tf
 from keras.backend import epsilon
 import keras.layers
 
-class DeContextLayer(keras.layers.Layer):
+class ExponentialMovingAverage(keras.layers.Layer):
     def __init__(
         self,
+        alpha = 0.85,
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self.alpha = alpha
         self.delay_buffer = None
-        self.ema_parameter = [tf.Variable(0.85, dtype=tf.float32, name="decontextlayer_0"), 
-                            tf.Variable(0.15, dtype=tf.float32, name="decontextlayer_1")]
+        self.ema_parameter = [tf.constant(alpha, dtype=tf.float32), 
+                            tf.constant(1-alpha, dtype=tf.float32)]
         
     def call(self, inputs, training=True):
         if self.delay_buffer is None:
-            outputs = self.ema_parameter[1] + self.ema_parameter[0]*inputs
+            outputs = self.ema_parameter[0]*inputs
             if inputs.shape[0] != None:
-                self.delay_buffer = self.ema_parameter[1]*self.delay_buffer + self.ema_parameter[0]*inputs
+                self.delay_buffer = self.ema_parameter[0]*inputs + self.ema_parameter[1]*self.delay_buffer
         else:
-            outputs = self.ema_parameter[1]*self.delay_buffer + self.ema_parameter[0]*inputs
-            self.delay_buffer = self.ema_parameter[1]*self.delay_buffer + self.ema_parameter[0]*inputs
-                    
-        return outputs
-
-class ContextLayer(keras.layers.Layer):
-    def __init__(
-        self,
-        unit,
-        use_bias=False,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.unit = unit
-        self.use_bias = use_bias
-        self.linear = keras.layers.Dense(unit, use_bias=use_bias)
-        self.ema_parameter = [tf.Variable(0.1, dtype=tf.float32, name="contextlayer_0"), 
-                            tf.Variable(0.9, dtype=tf.float32, name="contextlayer_1")]
-        self.delay_buffer = None
-        
-    def call(self, inputs, training=True):
-        if self.delay_buffer is None:
-            outputs = self.ema_parameter[1] + self.ema_parameter[0]*inputs
-            if inputs.shape[0] != None:
-                self.delay_buffer = self.ema_parameter[1]*self.delay_buffer + self.ema_parameter[0]*inputs
-        else:
-            outputs = self.ema_parameter[1]*self.delay_buffer + self.ema_parameter[0]*inputs
-            self.delay_buffer = self.ema_parameter[1]*self.delay_buffer + self.ema_parameter[0]*inputs
+            outputs = self.ema_parameter[0]*inputs + self.ema_parameter[1]*self.delay_buffer
+            self.delay_buffer = self.ema_parameter[0]*inputs + self.ema_parameter[1]*self.delay_buffer                    
         return outputs
 
     def get_config(self):
-        config = super(ContextLayer, self).get_config()
+        config = super(ExponentialMovingAverage, self).get_config()
         config.update(
-            {   
-                "unit": self.unit,
-                "use_bias": self.use_bias,
+            { 
+                "alpha": self.alpha,
             }
         )
         return config
