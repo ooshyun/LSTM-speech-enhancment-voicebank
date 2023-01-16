@@ -60,7 +60,11 @@ def build_model_rnn(args):
     # print(mask.shape, mask.dtype)
 
     mask = MelSpec(args)(mask)
-    mask = Dense(units=args.model.n_mels, use_bias=True, name="dense_context")(mask)
+    mask = Dense(units=args.model.n_mels, 
+                use_bias=True, 
+                kernel_initializer='glorot_uniform', 
+                bias_initializer='zeros',
+                name="dense_context")(mask)
     mask = ExponentialMovingAverage(alpha=0.1)(mask)
     
     # print(mask.shape, mask.dtype)
