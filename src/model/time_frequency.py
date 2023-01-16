@@ -3,25 +3,35 @@ from keras.backend import epsilon
 import keras.layers
 
 class ExponentialMovingAverage(keras.layers.Layer):
+    """
+        [B, T, ..., C]
+        outputs_{t} = alpha * inputs_{t} + alpha * outputs_{t-1}
+    """
     def __init__(
         self,
-        alpha = 0.85,
+        alpha,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.alpha = alpha
-        self.delay_buffer = None
         self.ema_parameter = [tf.constant(alpha, dtype=tf.float32), 
                             tf.constant(1-alpha, dtype=tf.float32)]
-        
     def call(self, inputs, training=True):
-        if self.delay_buffer is None:
-            outputs = self.ema_parameter[0]*inputs
-            if inputs.shape[0] != None:
-                self.delay_buffer = self.ema_parameter[0]*inputs + self.ema_parameter[1]*self.delay_buffer
-        else:
-            outputs = self.ema_parameter[0]*inputs + self.ema_parameter[1]*self.delay_buffer
-            self.delay_buffer = self.ema_parameter[0]*inputs + self.ema_parameter[1]*self.delay_buffer                    
+        assert len(inputs.shape)==3
+        _, time, _ = inputs.shape
+        outputs = []
+        
+        delay_buffer = None
+        for curr_time in range(time):
+            if curr_time == 0:
+                outputs.append(self.ema_parameter[1] * inputs[:, curr_time, ...])
+                delay_buffer = inputs[:, curr_time, ...]
+            elif curr_time == time-1:
+                outputs.append(self.ema_parameter[0]*delay_buffer + self.ema_parameter[1]*inputs[:, curr_time, ...])
+            else:
+                outputs.append(self.ema_parameter[0]*delay_buffer + self.ema_parameter[1]*inputs[:, curr_time, ...])
+                delay_buffer = inputs[:, curr_time, ...]        
+        outputs = tf.stack(outputs, axis=1)
         return outputs
 
     def get_config(self):
