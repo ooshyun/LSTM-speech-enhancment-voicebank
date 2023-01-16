@@ -45,7 +45,7 @@ model:
   f_max: 8000
   fft_normalization: True # False
   metric: ['sisdr', ] # 'nb-pesq', 'sdr', 'stoi', 'wb-pesq', 
-  path: './result/lstm/20230113-155250'
+  path: './result/lstm/20230116-144310'
   ckpt:
 
 test:
