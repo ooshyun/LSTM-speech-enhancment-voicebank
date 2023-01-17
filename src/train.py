@@ -16,9 +16,10 @@ from src.distrib import load_dataset, load_model, load_callback
 from src.utils import load_yaml, obj2dict, limit_gpu_tf
 
 
-def train(args):
+def train(path_conf):
     # 1. Set Paramter
     device_lib.list_local_devices()
+    args = load_yaml(path_conf)
 
     print("  Train Parameter")
     args_dict = obj2dict(args)
@@ -42,6 +43,11 @@ def train(args):
     save_path = os.path.join(
         args.folder, model_name, datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     )
+    
+    if not os.path.exists(save_path):
+        os.mkdir(save_path)
+    copyfile(path_conf, f"{save_path}/config.yaml")
+    
     callbacks_list = load_callback(save_path, args)
     print("Save path: ", save_path)
 
@@ -67,11 +73,6 @@ def train(args):
 
         save_model_all(save_path, model)
 
-    return save_path
-
 def main(gpu_size, path_conf):
     limit_gpu_tf(gpu_size) # 12G
-    config = load_yaml(path_conf)
-    save_path = train(config)
-
-    copyfile(path_conf, f"{save_path}/config.yaml")    
+    train(path_conf)
