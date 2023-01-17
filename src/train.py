@@ -45,7 +45,7 @@ def train(path_conf):
     )
     
     if not os.path.exists(save_path):
-        os.mkdir(save_path)
+        os.makedirs(save_path, exist_ok=True)
     copyfile(path_conf, f"{save_path}/config.yaml")
     
     callbacks_list = load_callback(save_path, args)
