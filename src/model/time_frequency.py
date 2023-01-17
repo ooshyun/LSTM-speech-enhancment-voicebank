@@ -1,3 +1,4 @@
+import numpy as np
 import tensorflow as tf
 from keras.backend import epsilon
 import keras.layers
@@ -5,7 +6,7 @@ import keras.layers
 class ExponentialMovingAverage(keras.layers.Layer):
     """
         [B, T, ..., C]
-        outputs_{t} = alpha * inputs_{t} + alpha * outputs_{t-1}
+        outputs_{t} = (1-alpha) * outputs_{t-1} + alpha * inputs_{t}
     """
     def __init__(
         self,
@@ -24,13 +25,13 @@ class ExponentialMovingAverage(keras.layers.Layer):
         delay_buffer = None
         for curr_time in range(time):
             if curr_time == 0:
-                outputs.append(self.ema_parameter[1] * inputs[:, curr_time, ...])
-                delay_buffer = inputs[:, curr_time, ...]
+                outputs.append(self.ema_parameter[0] * inputs[:, curr_time, ...])
+                delay_buffer = self.ema_parameter[0] * inputs[:, curr_time, ...]
             elif curr_time == time-1:
-                outputs.append(self.ema_parameter[0]*delay_buffer + self.ema_parameter[1]*inputs[:, curr_time, ...])
+                outputs.append(self.ema_parameter[1]*delay_buffer + self.ema_parameter[0]*inputs[:, curr_time, ...])
             else:
-                outputs.append(self.ema_parameter[0]*delay_buffer + self.ema_parameter[1]*inputs[:, curr_time, ...])
-                delay_buffer = inputs[:, curr_time, ...]        
+                outputs.append(self.ema_parameter[1]*delay_buffer + self.ema_parameter[0]*inputs[:, curr_time, ...])
+                delay_buffer = self.ema_parameter[1]*delay_buffer + self.ema_parameter[0]*inputs[:, curr_time, ...]
         outputs = tf.stack(outputs, axis=1)
         return outputs
 
