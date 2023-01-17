@@ -52,22 +52,23 @@ def build_model_rnn(args):
     )
     
     mask = Magnitude()(inputs)
-
     # print(mask.shape, mask.dtype)
 
     mask = tf.squeeze(mask, axis=1)  # merge channel
+    contextEMA = keras.layers.Dense(units=args.model.lstm_layer, 
+                            use_bias=True, 
+                            kernel_initializer='glorot_uniform', 
+                            bias_initializer='zeros',
+                            name="dense_contextema")(mask)
+
     
     # print(mask.shape, mask.dtype)
 
     mask = MelSpec(args)(mask)
-    mask = Dense(units=args.model.n_mels, 
-                use_bias=True, 
-                kernel_initializer='glorot_uniform', 
-                bias_initializer='zeros',
-                name="dense_context")(mask)
-    mask = ExponentialMovingAverage(alpha=0.1)(mask)
     
     # print(mask.shape, mask.dtype)
+    
+    # Power law compress 0.3
     
     if args.model.name == 'rnn':
         mask = SimpleRNN(args.model.lstm_layer, activation="tanh", return_sequences=True)(mask)
@@ -80,7 +81,11 @@ def build_model_rnn(args):
         mask = GRU(args.model.lstm_layer, activation="tanh", return_sequences=True)(mask)
     
     mask = BatchNormalization()(mask)
-
+    
+    if args.model.ema:
+        contextEMA = ExponentialMovingAverage(alpha=0.1)(contextEMA)
+        mask = tf.concat([mask, contextEMA], axis=-1)
+    
     mask = Dense(
         args.model.n_mels,
         activation="relu",
@@ -101,9 +106,10 @@ def build_model_rnn(args):
     )  
 
     # print(mask.shape, mask.dtype)
-    mask = ExponentialMovingAverage(alpha=0.85)(mask)
     mask = InverseMelSpec(args)(mask)
-
+    if args.model.ema:
+        mask = ExponentialMovingAverage(alpha=0.85)(mask)
+    
     # print(mask.shape, mask.dtype)
 
     mask = tf.expand_dims(mask, axis=1)  # expand channel
